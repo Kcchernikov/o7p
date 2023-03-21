@@ -1661,7 +1661,7 @@ bool ModuleCompiler::isCaseStatement(CaseStatement** st) {
 //_0:
     CaseStatement* caseSt = new CaseStatement();
     Expression* exp = nullptr;
-    CaseLabelList* list = nullptr;
+    CaseLabelList* list = new CaseLabelList();
     StatementSequence* stSeq = nullptr;
     long long integer = 0;
     std::string s;
@@ -1671,6 +1671,7 @@ bool ModuleCompiler::isCaseStatement(CaseStatement** st) {
     if(isKeyWord("CASE")) {
         goto _1;
     }
+    delete list;
     return false;
 _1:
     if(isExpression(&exp)) {
@@ -1771,6 +1772,7 @@ _8:
         ++pos;
         ++column;
         ignore();
+        list = new CaseLabelList();
         goto _3;
     }
     if(isKeyWord("END")) {
@@ -2311,7 +2313,7 @@ _5:
     if(isQualident(qual)) {
         if (qual.isVariable || qual.isConstant) {
             restoreLocation(l);
-            return false;
+            goto _end;
         }
         goto _6;
     }

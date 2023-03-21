@@ -2,10 +2,23 @@ MODULE Init;
 
 IMPORT Log, Draw;
 
-VAR i, j, v: INTEGER;
+CONST len = 256;
+
+VAR 
+  i, j, v, result: INTEGER;
+  value: ARRAY len OF INTEGER;
+
+PROCEDURE log2(x: INTEGER): INTEGER;
+ VAR y: INTEGER; (*assume x>0*)
+BEGIN 
+  y := 0;
+ WHILE x > 1 DO x := x DIV 2; y := y + 1 END;
+ RETURN y
+END log2;
+
 BEGIN
- (*FOR i:=1 TO 9 DO
-  FOR v:=1 TO 9 DO*)
+ FOR i:=1 TO 9 DO
+  FOR v:=1 TO 9 DO
    IF i * v < 10 THEN
     j := 1;
     (* Do smt *)
@@ -15,8 +28,27 @@ BEGIN
    END;
     j := 3;
     (* Do smt *)
-  (*END;
+  END;
     (* Do smt *)
- END*)
+ END;
+
+ i := 0;
+ WHILE (i < len) & (value[i] # 10) DO
+  value[i] := i;
+  i := i + 1;
+  (* INC(I) *)
+ END;
+
+ REPEAT value[i] := i MOD 10 + len; i := i + 1 UNTIL i = len;
+
+ CASE j OF
+   0: result := 2
+ | 1: result := 4
+ | 2: result := 6
+ | 3: result := 8
+ END;
+
+ result := log2(result)
+
 END Init.
 

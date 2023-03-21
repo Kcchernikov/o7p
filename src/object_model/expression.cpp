@@ -104,6 +104,9 @@ Factor::Factor(DesignatorWrapper* wr): value(wr), isVar(wr->designator->getIsVar
             }
         }
         resultType = proc->getResultType();
+        if (!resultType) {
+            assert(false && "Procedure without result type are banned in expressions");
+        }
     }
 }
 
