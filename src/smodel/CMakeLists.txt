@@ -11,8 +11,9 @@ set(SOURCE_LIB
     instruction.h
     module.h
     operand.h
-    procedure.h
+    procedure_context.h
     type.h
+    type_context.h
     variable.h
     
     #sources
@@ -23,8 +24,9 @@ set(SOURCE_LIB
     instruction.cpp
     module.cpp
     operand.cpp
-    procedure.cpp
+    procedure_context.cpp
     type.cpp
+    type_context.cpp
     variable.cpp
 )
 

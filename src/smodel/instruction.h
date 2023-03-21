@@ -30,7 +30,7 @@ public:
     Instruction();
 
     // Вывод отладочной информации
-    virtual void debugOut() = 0;
+    virtual void debugOut(size_t tabcnt = 0) = 0;
 private:
     OperationCode opc;  // код операции
     Operand* argument1;  // 1-й аргумент команды (если есть)

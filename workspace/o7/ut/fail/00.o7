@@ -1,0 +1,6 @@
+MODULE M00;
+VAR s: INTEGER;
+    s: INTEGER;
+
+BEGIN
+END M00.

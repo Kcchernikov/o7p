@@ -1,9 +1,16 @@
 #ifndef PARSER_H
 #define PARSER_H
 
+#include "../smodel/module.h"
+#include "../smodel/creator.h"
+#include "../object_model/declaration.h"
+#include "../object_model/designator.h"
+#include "../object_model/procedure.h"
+
 #include <iostream>
 #include <string>
 #include <vector>
+#include <variant>
 
 #include <cctype>
 
@@ -32,122 +39,138 @@ class ModuleCompiler {
     //void Compile(const char* str); - внешняя функция...
 
     // Данные для хранения старого местоположения в тексте
-    int oldPos;        // Позиция в тексте
-    int oldLine;       // Номер строки
-    int oldColumn;     // Номер столбца
+    int oldPos;                         // Позиция в тексте
+    int oldLine;                        // Номер строки
+    int oldColumn;                      // Номер столбца
+    uint32_t errCnt;                    // Число ошибок
+    Creator creator;                    // Вспомогательный класс для создания
+    DeclarationSequence* declaration;   // Текущая таблица имен
 public:
     // Конструктор, формирующий начальные установки параметров компилятора
     ModuleCompiler(const char* str);
     void InitParser(const char* str);
 
     // Module
-    bool isModule();
+    bool isModule(Module& module);
+
+    // Число ошибок
+    uint32_t getErrCnt() {
+        return errCnt;
+    }
     
     // ImportList
-    bool isImportList();
+    bool isImportList(Module& module);
     // DeclarationSequence
-    bool isDeclarationSequence();
+    bool isDeclarationSequence(DeclarationSequence** ds,
+                               std::unordered_map<std::string, NamedArtefact*>* reserved,
+                               std::unordered_map<std::string, DeclarationSequence*>* import);
     // ConstDeclaration
-    bool isConstDeclaration();
+    bool isConstDeclaration(ConstDeclaration** cd);
     // ConstExpression
-    bool isConstExpression();
+    bool isConstExpression(ConstFactor** factor);
     // SimpleConstExpression
-    bool isSimpleConstExpression();
+    bool isSimpleConstExpression(ConstFactor** factor);
     // ConstTerm
-    bool isConstTerm();
+    bool isConstTerm(ConstFactor** factor);
     // ConstFactor
-    bool isConstFactor();
+    bool isConstFactor(ConstFactor** factor);
     // ConstSet
-    bool isConstSet();
+    bool isConstSet(ConstFactor** factor);
     // ConstElement
-    bool isConstElement();
+    bool isConstElement(ConstFactor** factor);
     // TypeDeclaration
-    bool isTypeDeclaration();
+    bool isTypeDeclaration(DeclarationSequence* ds);
     // type
-    bool isType();
+    bool isType(TypeContext** ctx, bool createIfNotExists = false);
     // ArrayType
-    bool isArrayType();
+    bool isArrayType(TypeContext** type);
     // RecordType
-    bool isRecordType();
+    bool isRecordType(TypeContext** type);
     // FieldList
-    bool isFieldList();
+    bool isFieldList(FieldList& fl);
     // PointerType
-    bool isPointerType();
+    bool isPointerType(TypeContext** type);
     // ProcedureType
-    bool isProcedureType();
+    bool isProcedureType(TypeContext** type);
     // FormalParameters
-    bool isFormalParameters();
+    bool isFormalParameters(FormalParameters** fp);
     // FPSection
-    bool isFPSection();
+    bool isFPSection(FPSection** fps);
     // VariableDeclaration
-    bool isVariableDeclaration();
+    bool isVariableDeclaration(DeclarationSequence* ds);
     // ProcedureDeclaration
-    bool isProcedureDeclaration();
+    bool isProcedureDeclaration(NamedArtefact** procedure);
     // ProcedureHeading
-    bool isProcedureHeading();
+    bool isProcedureHeading(Procedure* proc);
     // ProcedureBody
-    bool isProcedureBody();
+    bool isProcedureBody(Procedure* proc);
     // StatementSequence
-    bool isStatementSequence();
+    bool isStatementSequence(StatementSequence** stSeq);
     // statement
-    bool isStatement();
+    bool isStatement(Statement** st);
     // assignment = designator ":=" expression.
-    bool isAssignment();
+    bool isAssignment(Assigment** st);
     // ProcedureCall = designator [ActualParameters].
-    bool isProcedureCall();
+    bool isProcedureCall(ProcedureCall** st);
     // IfStatement
-    bool isIfStatement();
+    bool isIfStatement(IfStatement** st);
     // CaseStatement
-    bool isCaseStatement();
+    bool isCaseStatement(CaseStatement** st);
     // WhileStatement
-    bool isWhileStatement();
+    bool isWhileStatement(WhileStatement** st);
     // RepeatStatement
-    bool isRepeatStatement();
+    bool isRepeatStatement(RepeatStatement** st);
     // ForStatement
-    bool isForStatement();
+    bool isForStatement(ForStatement** st);
     // expression
-    bool isExpression();
+    bool isExpression(Expression** exp);
     // SimpleExpression
-    bool isSimpleExpression();
+    bool isSimpleExpression(SimpleExpression** exp);
     // term
-    bool isTerm();
+    bool isTerm(Term** term);
     // factor
-    bool isFactor();
+    bool isFactor(Factor** factor);
+    // ConstDesignator
+    bool isConstDesignator(ConstFactor** factor);
     // designator
-    bool isDesignator();
+    bool isDesignator(Designator** des);
     // set
-    bool isSet();
+    bool isSet(Set** st);
+    // ConstActualParameters
+    bool isConstActualParameters(std::vector<ConstFactor*>& factor);
     // ActualParameters
-    bool isActualParameters();
+    bool isActualParameters(std::vector<Expression*>& params);
 
     //-----------------------------------------------------------------------------
     // Правила, определяющие лексический анализ
     //-----------------------------------------------------------------------------
     // Идентификатор без игнорируемых символов
     // Id = Letter {Letter | Digit}.
-    bool isId();
+    bool isId(std::string& id);
     // Ident = Letter {Letter | Digit}.
-    bool isIdent();
+    bool isIdent(std::string& ident);
     // Identdef = ident ["*"].
-    bool isIdentdef();
+    bool isIdentdef(Identdef& ident);
     // qualident = [ident "."] ident.
-    bool isQualident();
+    bool isQualident(Qualident& qualident, bool createIfNotExists = false);
     // KeyWord = Ident(str).
-    bool isKeyWord(const std::string&& str);
+    bool isKeyWord(const std::string& str);
     // AssignSymbol = ":="
     bool isAssignSymbol();
     // relation = "=" | "#" | "<" | "<=" | ">" | ">=" | IN | IS.
-    bool isRelation();
+    bool isRelation(Relation& rel);
     // AddOperator = "+" | "-" | OR.
-    bool isAddOperator();
+    bool isAddOperator(BinaryOperator& op);
     // MulOperator = "*" | "/" | DIV | MOD | "&".
-    bool isMulOperator();
+    bool isMulOperator(BinaryOperator& op);
     // number = integer | real.
-    bool isNumber();
+    bool isNumber(std::variant<long long, double>& number);
     // Real
-    bool isReal();
+    bool isReal(double& real);
     // digit {digit} | digit {hexDigit} "H".
-    bool isInteger();
+    bool isInteger(long long& integer);
+    // string = """ {character} """ | digit {hexDigit} "X".
+    bool isString(std::string& str);
     // string = """ {character} """ | digit {hexDigit} "X".
     bool isString();
     // comment = "(*" {character} "*)".

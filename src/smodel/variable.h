@@ -10,12 +10,14 @@ public:
     VarContext(TypeContext* type = nullptr);
 
     // Получение информации о типе переменой
-    TypeContext* getType() { return context; }
+    virtual TypeContext* getType() {
+        return context;
+    }
     // Установка типа переменной
     void setType(TypeContext* type) { context = type; }
 
     // Вывод отладочной информации о базовом типе
-    virtual void debugOut();
+    virtual void debugOut(size_t tabcnt = 0);
 private:
     TypeContext* context;   // Тип переменной
 };

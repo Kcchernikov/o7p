@@ -6,7 +6,7 @@ Operand::Operand()
 }
 
 // Вывод отладочной информации
-void Operand::debugOut() {
+void Operand::debugOut(size_t tabcnt) {
     std::cout << "OPERAND ";
-    context->debugOut();
+    context->debugOut(tabcnt);
 }

@@ -16,7 +16,7 @@ public:
     std::string& getAlias() {return alias;}
 
     // Вывод отладочной информации о контексте импорта
-    virtual void debugOut();
+    virtual void debugOut(size_t tabcnt = 0);
 private:
     std::string importedName;   // имя импортируемого модуля
     std::string alias;          // имя псевдонима модуля

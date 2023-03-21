@@ -1,0 +1,75 @@
+MODULE Init;
+
+ IMPORT D := Draw, M := Math, S := Strings;
+
+ CONST
+  width = 400; height = 400; (* размер холста *)
+  n = 300; nodes = 16; r = 70.0; speed = 0.1; (* параметры модели *)
+  hardInt = 100H; hardReal = 10.1E-2; multiConst = -100; constStr = "I am a const string";
+  negBool = ~TRUE; constSt = {1, 2, 7, 9..15, 19..20}; constRel = (2 IN {1 .. 3}) # FALSE;
+  constExp1 = (1 + 2 - 10 * 5 + 60) MOD 10; constExp2 = ~(FALSE OR TRUE & TRUE);
+  constDes = 2 * width + height * 3; constDesSt = {1, 3} / constSt; constFunc = FLT(ABS(-height)) - 1.0;
+  productsCount = 3; (* размер номенклатуры изделий *)
+
+TYPE
+  Function = PROCEDURE (x: INTEGER; VAR a, b : SET): INTEGER;
+
+  Particle = RECORD
+ 	x, y, vx, vy: REAL
+  END;
+
+  (* краска *)
+	tPaint = RECORD
+        (* Расход и общая масса краски
+           для холодной оцинковки *)
+		velo, masse: REAL
+	END;
+
+ 	tFigure = RECORD (* фигура *)
+ 		s1, s2, s3: REAL; (* размеры *)
+ 		aa, bb, cc, s: REAL (* площади *)
+ 	END;
+
+  ParticleChild = RECORD (Particle)
+  n: INTEGER
+  END;
+
+  AnyRecPtr = POINTER TO AnyRec;
+  AnyRec = RECORD 
+    recNum : INTEGER
+  END;
+
+
+  Node = POINTER TO RECORD 
+    rec    : POINTER TO AnyRec;
+    next   : Node
+  END;
+
+  Product = POINTER TO RECORD (AnyRec)     
+    name             : ARRAY 100 OF CHAR;
+    workTime         : REAL; (* время обработки единицы изделия *)
+    changeoverTime   : REAL; (* время перенастройки на это изделие *)
+    plan             : REAL; (* количество изделий, которое надо произвести за смену *)
+    stock            : REAL; (* количество изделий на складе на начало смены *)
+    order            : REAL; (* количество изделий на сегодня, которые заберут сегодня со склада - должно быть на складе на начало смены*)
+    meanOrder        : REAL; (* средний заказ, шт *)
+    amplitudeOrder   : REAL; (* размер колебания заказа *)
+    listeners        : Node; (* список вьюшек для уведомления *) 
+    color            : INTEGER
+  END;
+
+VAR 
+  i, v: INTEGER;
+  c: CHAR;
+  a, b: SET;
+  pinMap: ARRAY nodes OF ARRAY nodes OF INTEGER;
+  products : ARRAY productsCount OF Product;
+
+PROCEDURE AddProductsToStock;
+VAR i : INTEGER;
+BEGIN 
+  FOR i := 0 TO (*LEN(products) -1*)2 DO    
+    products[i].stock := products[i].stock + products[i].plan;    
+  END
+END AddProductsToStock;
+END Init.

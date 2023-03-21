@@ -1,0 +1,9 @@
+MODULE M00;
+TYPE
+  Particle = RECORD
+ 	x, y, vx, vy: REAL
+  END;
+
+BEGIN
+  Particle.x := 10;
+END M00.

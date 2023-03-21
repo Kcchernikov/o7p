@@ -48,6 +48,20 @@ public:
 
     // Создание переменной с установкой соответствующего типа
     VarContext* CreateVariable(TypeContext* type);
+
+    // Создание DeclarationSequence
+    DeclarationSequence* CreateDeclarationSequence(DeclarationSequence* prev,
+                                                        std::unordered_map<std::string, NamedArtefact*>* reserved,
+                                                        std::unordered_map<std::string, DeclarationSequence*>* import);
+
+    // Создание ConstDeclaration
+    ConstDeclaration* CreateConstDeclaration(const std::string& name, ConstFactor* factor, bool access);
+
+    // // Создание ConstExpression
+    // ConstExpression* CreateConstExpression(SimpleConstExpression* exp1);
+
+    // // Создание ConstExpression
+    // ConstExpression* CreateConstExpression(SimpleConstExpression* exp1, Relation rel, SimpleConstExpression* exp2);
 };
 
 #endif // CREATOR_H

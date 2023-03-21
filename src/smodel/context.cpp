@@ -22,7 +22,7 @@ NamedArtefact::NamedArtefact(std::string name, Context* context, bool access):
 {}
 
 // Вывод отладочной информации о именованном артефакте
-void NamedArtefact::debugOut() {
+void NamedArtefact::debugOut(size_t tabcnt) {
     std::cout << name << (access? "*: ":": ");
-    context->debugOut();
+    context->debugOut(tabcnt);
 }

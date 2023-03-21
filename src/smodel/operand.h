@@ -10,7 +10,7 @@ public:
     Operand();
 
     // Вывод отладочной информации
-    virtual void debugOut();
+    virtual void debugOut(size_t tabcnt = 0);
 private:
     Context* context;   // назначение операнда
 };

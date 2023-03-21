@@ -15,4 +15,4 @@ set(SOURCE_LIB
 
 add_library(compiler STATIC ${SOURCE_LIB})   # Создание статической библиотеки
 
-target_link_libraries(compiler smodel)     # Линковка программы с библиотекой
+target_link_libraries(compiler smodel object_model)     # Линковка программы с библиотекой

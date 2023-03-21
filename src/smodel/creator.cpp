@@ -73,3 +73,25 @@ TypePointerContext* Creator::CreateTypePointer(TypeRecordContext* r) {
 VarContext* Creator::CreateVariable(TypeContext* type) {
     return new VarContext(type);
 }
+
+// Создание DeclarationSequence
+DeclarationSequence* Creator::CreateDeclarationSequence(DeclarationSequence* prev,
+                                                        std::unordered_map<std::string, NamedArtefact*>* reserved,
+                                                        std::unordered_map<std::string, DeclarationSequence*>* import) {
+    return new DeclarationSequence(prev, reserved, import);
+}
+
+// Создание ConstDeclaration
+ConstDeclaration* Creator::CreateConstDeclaration(const std::string& name, ConstFactor* factor, bool access) {
+    return new ConstDeclaration(name, factor, access);
+}
+
+// // Создание ConstExpression
+// ConstExpression* Creator::CreateConstExpression(SimpleConstExpression* exp1) {
+//     return new ConstExpression(exp1);
+// }
+
+// // Создание ConstExpression
+// ConstExpression* Creator::CreateConstExpression(SimpleConstExpression* exp1, Relation rel, SimpleConstExpression* exp2) {
+//     return new ConstExpression(exp1, rel, exp2);
+// }

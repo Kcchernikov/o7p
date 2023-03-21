@@ -4,15 +4,18 @@
 #include <iostream>
 
 class NamedArtefact;
-
+class TypeContext;
 // Класс, определяющий назначение различных типов программных объектов
 class Context {
 public:
     // Установка общего начального контекста
     Context(NamedArtefact* na = nullptr);
 
+    virtual TypeContext* getType() {
+        return nullptr;
+    }
     // Вывод отладочной информации о назначении артефакта
-    virtual void debugOut() = 0;
+    virtual void debugOut(size_t tabcnt = 0) = 0;
     // Вывод отладочной иноформации (при необходимости) об имени контекста
     void debugInfoAboutName();
 
@@ -37,8 +40,15 @@ public:
     // Получение значения уровная доступа к артефакту
     bool getAccess() {return access;}
 
+    // Установка имени контекста
+    void setName(const std::string& newName) {name = newName;}
+    // Установка контекста
+    void setContext(Context* ctx) {context = ctx;}
+    // Установка значения уровная доступа к артефакту
+    void setAccess(bool newAcces) {access = newAcces;}
+
     // Вывод отладочной информации о именованном артефакте
-    virtual void debugOut();
+    virtual void debugOut(size_t tabcnt = 0);
 private:
     std::string name;   // Имя артефакта
     Context* context;   // Указатель на контекст именованного артефакта

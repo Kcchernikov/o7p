@@ -1,0 +1,22 @@
+MODULE Init;
+
+IMPORT Log, Draw;
+
+VAR i, j, v: INTEGER;
+BEGIN
+ (*FOR i:=1 TO 9 DO
+  FOR v:=1 TO 9 DO*)
+   IF i * v < 10 THEN
+    j := 1;
+    (* Do smt *)
+   ELSIF i * v >= 10 THEN
+    j := 2;
+    (* Do smt *)
+   END;
+    j := 3;
+    (* Do smt *)
+  (*END;
+    (* Do smt *)
+ END*)
+END Init.
+

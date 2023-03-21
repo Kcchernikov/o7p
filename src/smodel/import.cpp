@@ -9,6 +9,6 @@ ImportContext::ImportContext(std::string importedName, std::string alias):
 }
 
 // Вывод отладочной информации о контексте импорта
-void ImportContext::debugOut() {
+void ImportContext::debugOut(size_t tabcnt) {
     std::cout << "IMPORT " << alias << " := " << importedName; // << std::endl;
 }

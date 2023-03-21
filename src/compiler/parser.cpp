@@ -1,6 +1,16 @@
 //#include "error.h"
 #include "parser.h"
 
+#include <algorithm>
+#include <cstddef>
+#include <cstdio>
+#include <iostream>
+#include <ostream>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <vector>
+
 // Список ключевых и зарезервированных слов,
 // которые не могут использоваться в качестве идентификатора
 namespace {
@@ -49,23 +59,50 @@ void Compile(const char* str) {
     std::cout << str << std::endl;
 
     std::cout << "***** COMPILER STARTED *****" << std::endl;
-    if(mc.isModule()) {
-        std::cout << "OK" << std::endl;
+    Module module;
+    if(mc.isModule(module) && mc.getErrCnt() == 0) {
+        std::cout << "\e[1;32m" << "OK" << "\e[0m" << std::endl;
+        module.debugOut();
     } else {
-        std::cout << "FAIL" << std::endl;
+        std::cout << "\e[1;31m" << "FAIL" << "\e[0m" << std::endl;
     }
 }
 
 // Конструктор, формирующий начальные установки параметров компилятора
 ModuleCompiler::ModuleCompiler(const char* str): moduleStr{str},
-    pos{0}, line{1}, column{1}
-{}
+    pos{0}, line{1}, column{1}, errCnt{0}
+{
+    DeclarationSequence* base = new DeclarationSequence(nullptr, nullptr, nullptr);
+    // Базовые типы
+    base->addNamedArtefact(new NamedArtefact("BOOLEAN", new TypeBoolContext(), false));
+    base->addNamedArtefact(new NamedArtefact("CHAR", new TypeCharContext(), false));
+    base->addNamedArtefact(new NamedArtefact("INTEGER", new TypeIntegerContext(), false));
+    base->addNamedArtefact(new NamedArtefact("STRING", new TypeStringContext(), false));
+    base->addNamedArtefact(new NamedArtefact("REAL", new TypeRealContext(), false));
+    base->addNamedArtefact(new NamedArtefact("BYTE", new TypeByteContext(), false));
+    base->addNamedArtefact(new NamedArtefact("SET", new TypeSetContext(), false));
+    base->addNamedArtefact(new NamedArtefact("NIL", new TypeNilContext(), false));
+    // Константные функции
+    base->addConstNamedArtefact(new ConstDeclaration("ABS", new ConstFactor(CreateConstABS(), nullptr), false));
+    base->addConstNamedArtefact(new ConstDeclaration("ODD", new ConstFactor(CreateConstODD(), nullptr), false));
+    base->addConstNamedArtefact(new ConstDeclaration("LSL", new ConstFactor(CreateConstLSL(), nullptr), false));
+    base->addConstNamedArtefact(new ConstDeclaration("ASR", new ConstFactor(CreateConstASR(), nullptr), false));
+    base->addConstNamedArtefact(new ConstDeclaration("ROR", new ConstFactor(CreateConstROR(), nullptr), false));
+    base->addConstNamedArtefact(new ConstDeclaration("FLOOR", new ConstFactor(CreateConstFLOOR(), nullptr), false));
+    base->addConstNamedArtefact(new ConstDeclaration("FLT", new ConstFactor(CreateConstFLT(), nullptr), false));
+    base->addConstNamedArtefact(new ConstDeclaration("ORD", new ConstFactor(CreateConstORD(), nullptr), false));
+    base->addConstNamedArtefact(new ConstDeclaration("CHR", new ConstFactor(CreateConstCHR(), nullptr), false));
+
+    // TODO Добавить оствшиеся неконстантные функции, такие как INC, LEN, NEW
+    declaration = base;
+}
 
 //-----------------------------------------------------------------------------
 // Module = MODULE ident ";" [ImportList] DeclarationSequence
 //          [BEGIN StatementSequence] END ident "." .
-bool ModuleCompiler::isModule() {
+bool ModuleCompiler::isModule(Module& module) {
 //_0:
+    DeclarationSequence* oldDeclaration = declaration;
     ignore();
     if(isKeyWord("MODULE")) {
         ignore();
@@ -73,7 +110,9 @@ bool ModuleCompiler::isModule() {
     }
     return erMessage("The Module must start using key word MODULE");
 _1:
-    if(isIdent()) {
+    std::string moduleName;
+    if(isIdent(moduleName)) {
+        module.setModuleName(moduleName);
         goto _2;
     }
     return erMessage("It's not the name of Module");
@@ -86,31 +125,38 @@ _2:
     }
     return erMessage("Semicolon expected");
 _3:
-    if(isImportList()) {
+    if(isImportList(module)) {
         goto _4;
     }
-    if(isDeclarationSequence()) {
-        goto _5;
-    }
-    if(isKeyWord("BEGIN")) {
-        goto _6;
-    }
-    if(isKeyWord("END")) {
-        goto _8;
-    }
-    return erMessage("ImportList or DeclarationSequence or StatementSequence or END expected");
+    // if(isDeclarationSequence()) {
+    //     goto _5;
+    // }
+    // if(isKeyWord("BEGIN")) {
+    //     goto _6;
+    // }
+    // if(isKeyWord("END")) {
+    //     goto _8;
+    // }
+    // return erMessage("ImportList or DeclarationSequence or StatementSequence or END expected");
 _4:
-    if(isDeclarationSequence()) {
+    DeclarationSequence* ds = nullptr;
+    if(isDeclarationSequence(&ds, module.getReserved(), module.getImport())) {
+        module.setDeclarationSequence(ds);
+        delete ds;
+        declaration = module.getDeclarationSequence();
         goto _5;
+    } else {
+        declaration = oldDeclaration;
     }
-    if(isKeyWord("BEGIN")) {
-        goto _6;
-    }
-    if(isKeyWord("END")) {
-        goto _8;
-    }
-    return erMessage("DeclarationSequence or StatementSequence or END expected");
+    // if(isKeyWord("BEGIN")) {
+    //     goto _6;
+    // }
+    // if(isKeyWord("END")) {
+    //     goto _8;
+    // }
+    // return erMessage("DeclarationSequence or StatementSequence or END expected");
 _5:
+    StatementSequence* st = nullptr;
     if(isKeyWord("BEGIN")) {
         goto _6;
     }
@@ -119,8 +165,11 @@ _5:
     }
     return erMessage("BEGIN or END expected");
 _6:
-    if(isStatementSequence()) {
+    if(isStatementSequence(&st)) {
+        module.setStatementSequence(st);
         goto _7;
+    } else {
+        module.setStatementSequence(nullptr);
     }
     if(isKeyWord("END")) {
         goto _8;
@@ -132,7 +181,8 @@ _7:
     }
     return erMessage("END expected");
 _8:
-    if(isIdent()) {
+    std::string endModuleName;
+    if(isIdent(endModuleName) && endModuleName == moduleName) {
         goto _9;
     }
     return erMessage("It's not the name of Module");
@@ -152,31 +202,38 @@ _10:
 _end:
     /// Тестовый вывод (закомментировать после отработки)
     ///testMessage("It's Module");
+    declaration = oldDeclaration;
     return true;
 }
 
 //-----------------------------------------------------------------------------
 // ImportList = IMPORT import {"," import} ";".
 // import = ident [":=" ident].
-bool ModuleCompiler::isImportList() {
+bool ModuleCompiler::isImportList(Module& module) {
 //_0:
+    std::string alias;
+    std::string import;
     if(isKeyWord("IMPORT")) {
         goto _1;
     }
     return false;
 _1:
-    if(isIdent()) {
+    if(isIdent(alias)) {
         goto _2;
     }
     return erMessage("It's not the imported name or alias");
 _2:
     if(isSymbol(moduleStr[pos], ',')) {
+        ImportContext* iContext = creator.CreateImportContext(alias, alias);
+        module.AddNamedArtefact(alias, iContext);
         ++pos;
         ++column;
         ignore();
         goto _1;
     }
     if(isSymbol(moduleStr[pos], ';')) {
+        ImportContext* iContext = creator.CreateImportContext(alias, alias);
+        module.AddNamedArtefact(alias, iContext);
         ++pos;
         ++column;
         ignore();
@@ -187,18 +244,22 @@ _2:
     }
     return erMessage("It's not comma or  semicolon the imported name or alias or asignment");
 _3:
-    if(isIdent()) {
+    if(isIdent(import)) {
         goto _4;
     }
     return erMessage("It's not the imported name");
 _4:
     if(isSymbol(moduleStr[pos], ',')) {
+        ImportContext* iContext = creator.CreateImportContext(import, alias);
+        module.AddNamedArtefact(alias, iContext);
         ++pos;
         ++column;
         ignore();
         goto _1;
     }
     if(isSymbol(moduleStr[pos], ';')) {
+        ImportContext* iContext = creator.CreateImportContext(import, alias);
+        module.AddNamedArtefact(alias, iContext);
         ++pos;
         ++column;
         ignore();
@@ -214,8 +275,21 @@ _end:
 //    [TYPE {TypeDeclaration ";"}]
 //    [VAR {VariableDeclaration ";"}]
 //    {ProcedureDeclaration ";"}.
-bool ModuleCompiler::isDeclarationSequence() {
+bool ModuleCompiler::isDeclarationSequence(DeclarationSequence** ds,
+                                           std::unordered_map<std::string, NamedArtefact*>* reserved,
+                                           std::unordered_map<std::string, DeclarationSequence*>* import) {
 //_0:
+    DeclarationSequence* curDS = nullptr;
+    bool needDelete = false;
+    if ((*ds)) {
+        curDS = (*ds);
+    } else {
+        curDS = creator.CreateDeclarationSequence(declaration, reserved, import);
+        needDelete = true;
+    }
+    declaration = curDS;
+    ConstDeclaration* cd;
+    NamedArtefact* decl = nullptr;
     if(isKeyWord("CONST")) {
         goto _1;
     }
@@ -225,12 +299,18 @@ bool ModuleCompiler::isDeclarationSequence() {
     if(isKeyWord("VAR")) {
         goto _7;
     }
-    if(isProcedureDeclaration()) {
+    if(isProcedureDeclaration(&decl)) {
+        curDS->addNamedArtefact(decl);
+        decl = nullptr;
         goto _10;
+    }
+    if (needDelete) {
+        delete curDS;
     }
     return false;
 _1:
-    if(isConstDeclaration()) {
+    if(isConstDeclaration(&cd)) {
+        curDS->addConstNamedArtefact(cd);
         goto _2;
     }
     return erMessage("It's not the Declaration of Constants");
@@ -243,7 +323,8 @@ _2:
     }
     return erMessage("Semicolon expected");
 _3:
-    if(isConstDeclaration()) {
+    if(isConstDeclaration(&cd)) {
+        curDS->addConstNamedArtefact(cd);
         goto _2;
     }
     if(isKeyWord("TYPE")) {
@@ -252,12 +333,16 @@ _3:
     if(isKeyWord("VAR")) {
         goto _7;
     }
-    if(isProcedureDeclaration()) {
+    if(isProcedureDeclaration(&decl)) {
+        curDS->addNamedArtefact(decl);
+        decl = nullptr;
         goto _10;
     }
     goto _end;  // выход без ошибки при отсутствии правила
 _4:
-    if(isTypeDeclaration()) {
+    if(isTypeDeclaration(curDS)) {
+        // curDS->addNamedArtefact(decl);
+        // decl = nullptr;
         goto _5;
     }
     return erMessage("It's not the Type Declaration");
@@ -270,18 +355,22 @@ _5:
     }
     return erMessage("Semicolon expected");
 _6:
-    if(isTypeDeclaration()) {
+    if(isTypeDeclaration(curDS)) {
+        // curDS->addNamedArtefact(decl);
+        // decl = nullptr;
         goto _5;
     }
     if(isKeyWord("VAR")) {
         goto _7;
     }
-    if(isProcedureDeclaration()) {
+    if(isProcedureDeclaration(&decl)) {
+        curDS->addNamedArtefact(decl);
+        decl = nullptr;
         goto _10;
     }
     goto _end;  // выход без ошибки при отсутствии правила
 _7:
-    if(isVariableDeclaration()) {
+    if(isVariableDeclaration(curDS)) {
         goto _8;
     }
     return erMessage("It's not the Declaration of Variables");
@@ -294,10 +383,12 @@ _8:
     }
     return erMessage("Semicolon expected");
 _9:
-    if(isVariableDeclaration()) {
+    if(isVariableDeclaration(curDS)) {
         goto _8;
     }
-    if(isProcedureDeclaration()) {
+    if(isProcedureDeclaration(&decl)) {
+        curDS->addNamedArtefact(decl);
+        decl = nullptr;
         goto _10;
     }
     goto _end;  // выход без ошибки при отсутствии правила
@@ -310,11 +401,19 @@ _10:
     }
     return erMessage("Semicolon expected");
 _11:
-    if(isProcedureDeclaration()) {
+    if(isProcedureDeclaration(&decl)) {
+        curDS->addNamedArtefact(decl);
+        decl = nullptr;
         goto _10;
     }
     goto _end;  // выход без ошибки при отсутствии правила
 _end:
+    if (curDS->getNotInit() != 0) {
+        return erMessage("Not all records are initialized");
+    }
+    if (ds) {
+        (*ds) = curDS;
+    }
     return true;
 }
 
@@ -322,9 +421,11 @@ _end:
 // ConstDeclaration = identdef "=" ConstExpression.
 // identdef = ident ["*"].
 // ConstExpression = expression.
-bool ModuleCompiler::isConstDeclaration() {
+bool ModuleCompiler::isConstDeclaration(ConstDeclaration** cd) {
 //_0:
-    if(isIdentdef()) {
+    Identdef ident;
+    ConstFactor* factor;
+    if(isIdentdef(ident)) {
         goto _1;
     }
     return false;
@@ -337,113 +438,185 @@ _1:
     }
     return erMessage("Symbol '=' expected");
 _2:
-    if(isConstExpression()) {
+    if(isConstExpression(&factor)) {
         goto _end;
     }
     return erMessage("Constant Expression expected");
 _end:
+    ConstDeclaration* curCD = creator.CreateConstDeclaration(ident.name, factor, ident.access);
+    if (cd) {
+        (*cd) = curCD;
+    }
     return true;
 }
 
 //-----------------------------------------------------------------------------
 // ConstExpression = SimpleConstExpression [relation SimpleConstExpression].
-bool ModuleCompiler::isConstExpression() {
+bool ModuleCompiler::isConstExpression(ConstFactor** factor) {
 //_0:
-    if(isSimpleConstExpression()) {
+    ConstFactor* factor1 = nullptr;
+    ConstFactor* factor2 = nullptr;
+    Relation rel;
+    if(isSimpleConstExpression(&factor1)) {
         goto _1;
     }
     return false;
 _1:
-    if(isRelation()) {
+    if(isRelation(rel)) {
         goto _2;
     }
     goto _end;
 _2:
-    if(isSimpleConstExpression()) {
+    if(isSimpleConstExpression(&factor2)) {
+        factor1->applyRelation(rel, factor2);
+        delete factor2;
         goto _end;
     }
     return erMessage("Simple Constant Expression expected");
 _end:
+    if (factor) {
+        (*factor) = factor1;
+    }
     return true;
 }
 
 //-----------------------------------------------------------------------------
 // SimpleConstExpression = ["+" | "-"] ConstTerm {AddOperator ConstTerm}.
-bool ModuleCompiler::isSimpleConstExpression() {
+bool ModuleCompiler::isSimpleConstExpression(ConstFactor** factor) {
 //_0:
+    ConstFactor* term = nullptr;
+    ConstFactor* result = nullptr;
+    UnaryOperator unOperator = UnaryOperator::NONE;
+    BinaryOperator binOperator;
     if(isSymbol(moduleStr[pos], '+')) {
+        unOperator = UnaryOperator::UN_PLUS;
         ++pos;
         ++column;
         ignore();
         goto _1;
     }
     if(isSymbol(moduleStr[pos], '-')) {
+        unOperator = UnaryOperator::UN_MINUS;
         ++pos;
         ++column;
         ignore();
         goto _1;
     }
-    if(isConstTerm()) {
+    if(isConstTerm(&term)) {
+        if (!result) {
+            result = term;
+            result->applyUnaryOperator(unOperator);
+        } else {
+            result->applyBinaryOperator(binOperator, term);
+            delete term;
+        }
+        term = nullptr;
         goto _2;
     }
     return false;
 _1:
-    if(isConstTerm()) {
+    if(isConstTerm(&term)) {
+        if (!result) {
+            result = term;
+            result->applyUnaryOperator(unOperator);
+        } else {
+            result->applyBinaryOperator(binOperator, term);
+            delete term;
+        }
+        term = nullptr;
         goto _2;
     }
     return erMessage("Constant Term expected");
 _2:
-    if(isAddOperator()) {
+    if(isAddOperator(binOperator)) {
         goto _1;
     }
     goto _end;
 _end:
+    if (factor) {
+        *factor = result;
+    }
     return true;
 }
 
 //-----------------------------------------------------------------------------
 // ConstTerm = ConstFactor {MulOperator ConstFactor}.
-bool ModuleCompiler::isConstTerm() {
+bool ModuleCompiler::isConstTerm(ConstFactor** factor) {
 //_0:
-    if(isConstFactor()) {
+    ConstFactor* factor1 = nullptr;
+    ConstFactor* result = nullptr;
+    BinaryOperator binOperator;
+    if(isConstFactor(&factor1)) {
+        result = factor1;
+        factor1 = nullptr;
         goto _1;
     }
     return false;
 _1:
-    if(isMulOperator()) {
+    if(isMulOperator(binOperator)) {
         goto _2;
     }
     goto _end;
 _2:
-    if(isConstFactor()) {
+    if(isConstFactor(&factor1)) {
+        result->applyBinaryOperator(binOperator, factor1);
+        delete factor1;
+        factor1 = nullptr;
         goto _1;
     }
     return erMessage("Constant Factor expected");
 _end:
+    if (factor) {
+        *factor = result;
+    }
     return true;
 }
 
 //-----------------------------------------------------------------------------
 // ConstFactor = number | string | NIL | TRUE | FALSE |
 //             ConstSet | designator [ActualParameters] | "(" ConstExpression ")" | "~" ConstFactor.
-bool ModuleCompiler::isConstFactor() {
+bool ModuleCompiler::isConstFactor(ConstFactor** factor) {
 //_0:
+    std::string str;
+    std::variant<long long, double> number;
+    ConstFactor* designator;
+    std::vector<ConstFactor*> parameters;
     if(isKeyWord("NIL")) {
+        if (factor) {
+            NIL n;
+            *factor = new ConstFactor(n, declaration);
+        }
         goto _end;
     }
     if(isKeyWord("TRUE")) {
+        if (factor) {
+            *factor = new ConstFactor(true, declaration);
+        }
         goto _end;
     }
     if(isKeyWord("FALSE")) {
+        if (factor) {
+            *factor = new ConstFactor(false, declaration);
+        }
         goto _end;
     }
-    if(isString()) {
+    if(isString(str)) {
+        if (factor) {
+            *factor = new ConstFactor(str, declaration);
+        }
         goto _end;
     }
-    if(isNumber()) {
+    if(isNumber(number)) {
+        if (factor) {
+            if (number.index() == 0) {
+                *factor = new ConstFactor(std::get<long long>(number), declaration);
+            } else {
+                *factor = new ConstFactor(std::get<double>(number), declaration);
+            }
+        }
         goto _end;
     }
-    if(isConstSet()) {
+    if(isConstSet(factor)) {
         goto _end;
     }
     if(isSymbol(moduleStr[pos], '(')) {
@@ -458,12 +631,12 @@ bool ModuleCompiler::isConstFactor() {
         ignore();
         goto _3;
     }
-    if(isDesignator()) {
+    if(isConstDesignator(&designator)) {
         goto _4;
     }
     return false;
 _1:
-    if(isConstExpression()) {
+    if(isConstExpression(factor)) {
         goto _2;
     }
     return erMessage("Constant Expression expected");
@@ -476,13 +649,24 @@ _2:
     }
     return erMessage("Right bracket expected");
 _3:
-    if(isConstFactor()) {
+    if(isConstFactor(factor)) {
+        (*factor)->applyUnaryOperator(UnaryOperator::NEGATION);
         goto _end;
     }
     return erMessage("Constant Factor expected");
 _4:
-    if(isActualParameters()) {
+    if(isConstActualParameters(parameters)) {
+        if (factor) {
+            *factor = designator->execute(parameters, declaration);
+        }
+        for (size_t i = 0; i < parameters.size(); ++i) {
+            delete parameters[i];
+        }
+        delete designator;
         goto _end;
+    }
+    if (factor) {
+        *factor = designator;
     }
     goto _end;
 _end:
@@ -491,24 +675,29 @@ _end:
 
 //-----------------------------------------------------------------------------
 // ConstSet = "{" [ConstElement {"," ConstElement}] "}".
-bool ModuleCompiler::isConstSet() {
+bool ModuleCompiler::isConstSet(ConstFactor** factor) {
 //_0:
+    ConstFactor* element = nullptr;
+    unsigned result = 0;
    if(isSymbol(moduleStr[pos], '{')) {
-       ++pos;
-       ++column;
-       ignore();
-       goto _1;
+        ++pos;
+        ++column;
+        ignore();
+        goto _1;
    }
    return false;
 _1:
    if(isSymbol(moduleStr[pos], '}')) {
-       ++pos;
-       ++column;
-       ignore();
-       goto _end;
+        ++pos;
+        ++column;
+        ignore();
+        goto _end;
    }
-   if(isConstElement()) {
-       goto _2;
+   if(isConstElement(&element)) {
+        result |= element->getSetValue();
+        delete element;
+        element = nullptr;
+        goto _2;
    }
    return erMessage("Constant Element or '}' expected");
 _2:
@@ -526,19 +715,33 @@ _2:
    }
    return erMessage("'}' or ',' expected");
 _3:
-   if(isConstElement()) {
-       goto _2;
+   if(isConstElement(&element)) {
+        result |= element->getSetValue();
+        delete element;
+        element = nullptr;
+        goto _2;
    }
    return erMessage("Constant Element expected");
 _end:
+    *factor = new ConstFactor(result, declaration);
     return true;
 }
 
 //-----------------------------------------------------------------------------
 // ConstElement = ConstExpression [".." ConstExpression].
-bool ModuleCompiler::isConstElement() {
+bool ModuleCompiler::isConstElement(ConstFactor** factor) {
 //_0:
-    if(isConstExpression()) {
+    ConstFactor* exp1 = nullptr;
+    ConstFactor* exp2 = nullptr;
+    unsigned result = 0;
+    int l = 0, r = -1;
+    if(isConstExpression(&exp1)) {
+        l = exp1->getIntValue();
+        if (l < 0 || l > sizeof(unsigned) * 8) {
+            return erMessage("ConstElement must be positive and lower than sizeof(unsigned) * 8");
+        }
+        result |= (1ll << l);
+        delete exp1;
         goto _1;
     }
     return false;
@@ -552,19 +755,33 @@ _1:
     }
     goto _end;
 _2:
-    if(isConstExpression()) {
-        goto _1;
+    if(isConstExpression(&exp2)) {
+        r = exp2->getIntValue();
+        if (r < 0 || r > sizeof(unsigned) * 8) {
+            return erMessage("ConstElement must be positive and lower than sizeof(unsigned) * 8");
+        }
+        if (r < l) {
+            return erMessage("the left border should be smaller than the right one");
+        }
+        result = (1ll << r) - 1 + (1ll << r);
+        result -= (1ll << l) - 1;
+        delete exp2;
+        // goto _1;
+        goto _end;
     }
     return erMessage("Constant Expression expected");
 _end:
+    *factor = new ConstFactor(result, declaration);
     return true;
 }
 
 //-----------------------------------------------------------------------------
 // TypeDeclaration = identdef "=" type.
-bool ModuleCompiler::isTypeDeclaration() {
+bool ModuleCompiler::isTypeDeclaration(DeclarationSequence* ds) {
 //_0:
-    if(isIdentdef()) {
+    Identdef ident;
+    TypeContext* ctx;
+    if(isIdentdef(ident)) {
         goto _1;
     }
     return false;
@@ -577,31 +794,62 @@ _1:
     }
     return erMessage("Symbol '=' expected");
 _2:
-    if(isType()) {
+    TypeContext* oldCtx = ctx;
+    NamedArtefact* cur = ds->getCurrentArtefactByName(ident.name);
+    TypeRecordContext* rec;
+    bool isPartDecl = false;
+    if (cur) {
+        rec = dynamic_cast<TypeRecordContext*>(cur->getContext());
+        isPartDecl = (rec && (rec->getInit() == false));
+    }
+    if (isPartDecl) {
+        ds->decNotInit();
+        ctx = nullptr;
+    } else {
+        ctx = new TypePointerContext();
+        NamedArtefact* type = new NamedArtefact(ident.name, ctx, ident.access);
+        ctx->setNamedArtefact(type);
+        oldCtx = ctx;
+        ds->addNamedArtefact(type);
+    }
+    if(isType(&ctx)) {
+        if (isPartDecl) {
+            (*rec) = (*dynamic_cast<TypeRecordContext*>(ctx));
+        }
         goto _end;
     }
     return erMessage("Type value expected");
 _end:
+    if (!isPartDecl && oldCtx != ctx) {
+        NamedArtefact* art = ds->getArtefactByName(ident.name);
+        art->setContext(ctx);
+        ctx->setNamedArtefact(art);
+        delete oldCtx;
+    }
     return true;
 }
 
 //-----------------------------------------------------------------------------
 // type = qualident | ArrayType | RecordType | PointerType | ProcedureType.
-bool ModuleCompiler::isType() {
+bool ModuleCompiler::isType(TypeContext** type, bool createIfNotExists) {
 //_0:
-    if(isArrayType()) {
+    Context* ctx = nullptr;
+    Qualident qualident;
+    if(isArrayType(type)) {
         goto _end;
     }
-    if(isRecordType()) {
+    if(isRecordType(type)) {
         goto _end;
     }
-    if(isPointerType()) {
+    if(isPointerType(type)) {
         goto _end;
     }
-    if(isProcedureType()) {
+    if(isProcedureType(type)) {
         goto _end;
     }
-    if(isQualident()) {
+    if(isQualident(qualident, createIfNotExists)) {
+        // (*type) = dynamic_cast<TypeContext*>(ctx);
+        (*type) = qualident.type;
         goto _end;
     }
     return false;
@@ -612,14 +860,15 @@ _end:
 //-----------------------------------------------------------------------------
 // ArrayType = ARRAY length {"," length} OF type.
 // length = ConstExpression.
-bool ModuleCompiler::isArrayType() {
+bool ModuleCompiler::isArrayType(TypeContext** type) {
 //_0:
     if(isKeyWord("ARRAY")) {
         goto _1;
     }
     return false;
 _1:
-    if(isConstExpression()) {
+    ConstFactor* len = nullptr;
+    if(isConstExpression(&len)) {
         goto _2;
     }
     return erMessage("Constant Expression expected");
@@ -635,11 +884,13 @@ _2:
     }
     return erMessage("Symbol ',' or Key word OF expected");
 _3:
-    if(isType()) {
+    TypeContext* ctx = nullptr;
+    if(isType(&ctx)) {
         goto _end;
     }
     return erMessage("Type value expected");
 _end:
+    (*type) = new TypeArrayContext(len->getIntValue(), ctx);
     return true;
 }
 
@@ -647,8 +898,11 @@ _end:
 // RecordType = RECORD ["(" BaseType ")"] [FieldListSequence] END.
 // BaseType = qualident.
 // FieldListSequence = FieldList {";" FieldList}.
-bool ModuleCompiler::isRecordType() {
+bool ModuleCompiler::isRecordType(TypeContext** type) {
 //_0:
+    TypeRecordContext* rec;
+    TypeContext* baseType = nullptr;
+    Qualident qualident;
     if(isKeyWord("RECORD")) {
         goto _1;
     }
@@ -660,15 +914,17 @@ _1:
         ignore();
         goto _2;
     }
-    if(isFieldList()) {
-        goto _5;
-    }
-    if(isKeyWord("END")) {
-        goto _end;
-    }
-    return erMessage("Symbol '(' or Key word END or Field list expected");
+    goto _4;
+    // if(isFieldList()) {
+    //     goto _5;
+    // }
+    // if(isKeyWord("END")) {
+    //     goto _end;
+    // }
+    // return erMessage("Symbol '(' or Key word END or Field list expected");
 _2:
-    if(isQualident()) {
+    if(isQualident(qualident)) {
+        baseType = qualident.type;
         goto _3;
     }
     return erMessage("Qualident expected");
@@ -681,7 +937,17 @@ _3:
     }
     return erMessage("Symbol ')' expected");
 _4:
-    if(isFieldList()) {
+    rec = new TypeRecordContext(dynamic_cast<TypeRecordContext*>(baseType));
+    FieldList fl;
+    if(isFieldList(fl)) {
+        DeclarationSequence* ds = rec->getDeclaration();
+        for (auto ident : fl.idents) {
+            VarContext* ctx = new VarContext(fl.type);
+            NamedArtefact* v = new NamedArtefact(ident.name, ctx, ident.access);
+            ctx->setNamedArtefact(v);
+            ds->addNamedArtefact(v);
+            rec->incTypeSize(ctx->getType()->getTypeSize());
+        }
         goto _5;
     }
     if(isKeyWord("END")) {
@@ -700,20 +966,31 @@ _5:
     }
     return erMessage("Key word END or Symbol ';' expected");
 _6:
-    if(isFieldList()) {
+    fl.clear();
+    if(isFieldList(fl)) {
+        DeclarationSequence* ds = rec->getDeclaration();
+        for (auto ident : fl.idents) {
+            VarContext* ctx = new VarContext(fl.type);
+            NamedArtefact* v = new NamedArtefact(ident.name, ctx, ident.access);
+            ctx->setNamedArtefact(v);
+            ds->addNamedArtefact(v);
+        }
         goto _5;
     }
     return erMessage("Field list expected");
 _end:
+    (*type) = rec;
     return true;
 }
 
 //-----------------------------------------------------------------------------
 // FieldList = IdentList ":" type.
 // IdentList = identdef {"," identdef}.
-bool ModuleCompiler::isFieldList() {
+bool ModuleCompiler::isFieldList(FieldList& fl) {
 //_0:
-    if(isIdentdef()) {
+    Identdef ident;
+    if(isIdentdef(ident)) {
+        fl.idents.push_back(ident);
         goto _1;
     }
     return false;
@@ -732,12 +1009,15 @@ _1:
     }
     return erMessage("Symbols ',' or ':' expected");
 _2:
-    if(isIdentdef()) {
+    if(isIdentdef(ident)) {
+        fl.idents.push_back(ident);
         goto _1;
     }
     return erMessage("Idendef expected");
 _3:
-    if(isType()) {
+    TypeContext* ctx = nullptr;
+    if(isType(&ctx)) {
+        fl.type = ctx;
         goto _end;
     }
     return erMessage("Type expected");
@@ -748,7 +1028,7 @@ _end:
 
 //-----------------------------------------------------------------------------
 // PointerType = POINTER TO type.
-bool ModuleCompiler::isPointerType() {
+bool ModuleCompiler::isPointerType(TypeContext** type) {
 //_0:
     if(isKeyWord("POINTER")) {
         goto _1;
@@ -760,41 +1040,62 @@ _1:
     }
     return erMessage("POINTER TO expected");
 _2:
-    if(isType()) {
+    TypeContext* ctx = nullptr;
+    if(isType(&ctx, true)) {
         goto _end;
     }
     return erMessage("Type expected");
 _end:
+    TypeRecordContext* rec = dynamic_cast<TypeRecordContext*>(ctx);
+    if (!ctx || !rec) {
+        return erMessage("Type to point is null");
+    } else {
+        if (*type) {
+            dynamic_cast<TypePointerContext*>(*type)->setRecord(rec);
+        } else {
+            (*type) = new TypePointerContext(rec);
+        }
+    }
     return true;
 }
 
 //-----------------------------------------------------------------------------
 // ProcedureType = PROCEDURE [FormalParameters].
-bool ModuleCompiler::isProcedureType() {
+bool ModuleCompiler::isProcedureType(TypeContext** type) {
 //_0:
+    FormalParameters* fp = nullptr;
     if(isKeyWord("PROCEDURE")) {
         goto _1;
     }
     return false;
 _1:
-    if(isFormalParameters()) {
+    if(isFormalParameters(&fp)) {
         goto _end;
     }
     goto _end;
 _end:
+    ProcContext* proc = new ProcContext(declaration);
+    if (fp) {
+        proc->setFormalParameters(fp);
+    }
+    (*type) = proc;
     return true;
 }
 
 //-----------------------------------------------------------------------------
 // FormalParameters = "(" [FPSection {";" FPSection}] ")" [":" qualident].
-bool ModuleCompiler::isFormalParameters() {
+bool ModuleCompiler::isFormalParameters(FormalParameters** fp) {
 //_0:
+    FormalParameters* curFP = new FormalParameters();
+    FPSection* fps = nullptr;
+    Qualident result;
     if(isSymbol(moduleStr[pos], '(')) {
         ++pos;
         ++column;
         ignore();
         goto _1;
     }
+    delete curFP;
     return false;
 _1:
     if(isSymbol(moduleStr[pos], ')')) {
@@ -803,7 +1104,8 @@ _1:
         ignore();
         goto _3;
     }
-    if(isFPSection()) {
+    if(isFPSection(&fps)) {
+        curFP->addFPSection(fps);
         goto _2;
     }
     return erMessage("FPSection expected");
@@ -829,31 +1131,46 @@ _3:
         goto _4;
     }
     // Процедура без результата
+    curFP->setResultType(nullptr);
     goto _end;
     ///return erMessage("':' expected");
 _4:
-    if(isQualident()) {
+    if(isQualident(result)) {
+        // TypeContext* tp = dynamic_cast<TypeContext*>(result);
+        TypeContext* tp = result.type;
+        if (!tp) {
+            return erMessage("Procedure result must be a type");
+        }
+        curFP->setResultType(tp);
         goto _end;
     }
     return erMessage("Qualident expected");
 _end:
+    (*fp) = curFP;
     return true;
 }
 
 //-----------------------------------------------------------------------------
 // FPSection = [VAR] ident {"," ident} ":" FormalType.
 // FormalType = {ARRAY OF} qualident.
-bool ModuleCompiler::isFPSection() {
+bool ModuleCompiler::isFPSection(FPSection** fps) {
 //_0:
+    FPSection* section = new FPSection();
+    std::string ident;
+    Qualident qualident;
     if(isKeyWord("VAR")) {
+        section->setIsVar(true);
         goto _1;
     }
-    if(isIdent()) {
+    if(isIdent(ident)) {
+        section->addParameter(ident);
         goto _2;
     }
+    delete section;
     return false;
 _1:
-    if(isIdent()) {
+    if(isIdent(ident)) {
+        section->addParameter(ident);
         goto _2;
     }
     // Вывод сообщения об ошибке
@@ -873,10 +1190,16 @@ _2:
     }
     return erMessage("',' or ':' expected");
 _3:
+    // TODO: support array
     if(isKeyWord("ARRAY")) {
         goto _4;
     }
-    if(isQualident()) {
+    if(isQualident(qualident)) {
+        TypeContext* type = qualident.type;
+        if (!type) {
+            return erMessage("Type is not declarated");
+        }
+        section->setType(type);
         goto _end;
     }
     return erMessage("Key word ARRAY or Qualident expected");
@@ -886,20 +1209,32 @@ _4:
     }
     return erMessage("Key word OF expected");
 _5:
-    if(isQualident()) {
+    if(isQualident(qualident)) {
+        TypeContext* type = qualident.type;
+        if (!type) {
+            return erMessage("Type is not declarated");
+        }
+        TypeContext* array = new TypeArrayContext(0, type);
+        section->setType(array);
         goto _end;
     }
     return erMessage("Qualident expected");
 _end:
+    (*fps) = section;
     return true;
 }
 
 //-----------------------------------------------------------------------------
 // VariableDeclaration = IdentList ":" type.
 // IdentList = identdef {"," identdef}.
-bool ModuleCompiler::isVariableDeclaration() {
+// Поскольку декларируется сразу несколько переменных, то они сразу
+// записываются в переданный DeclarationSequence
+bool ModuleCompiler::isVariableDeclaration(DeclarationSequence* ds) {
 //_0:
-    if(isIdentdef()) {
+    std::vector<Identdef> idents;
+    Identdef ident;
+    if(isIdentdef(ident)) {
+        idents.push_back(ident);
         goto _1;
     }
     return false;
@@ -918,26 +1253,39 @@ _1:
     }
     return erMessage("Symbols ',' or ':' expected");
 _2:
-    if(isIdentdef()) {
+    if(isIdentdef(ident)) {
+        idents.push_back(ident);
         goto _1;
     }
     return erMessage("Idendef expected");
 _3:
-    if(isType()) {
+    TypeContext* type = nullptr;
+    if(isType(&type)) {
         goto _end;
     }
     return erMessage("Type expected");
 _end:
+    if (ds) {
+        for (auto id : idents) {
+            VarContext* ctx = new VarContext(type);
+            NamedArtefact* v = new NamedArtefact(id.name, ctx, id.access);
+            ctx->setNamedArtefact(v);
+            ds->addNamedArtefact(v);
+        }
+    }
     return true;
 }
 
 //-----------------------------------------------------------------------------
 // ProcedureDeclaration = ProcedureHeading ";" ProcedureBody ident.
-bool ModuleCompiler::isProcedureDeclaration() {
+bool ModuleCompiler::isProcedureDeclaration(NamedArtefact** procedure) {
 //_0:
-    if(isProcedureHeading()) {
+    DeclarationSequence* oldDeclaration = declaration;
+    Procedure* proc = new Procedure(declaration);
+    if(isProcedureHeading(proc)) {
         goto _1;
     }
+    delete proc;
     return false;
 _1:
     if(isSymbol(moduleStr[pos], ';')) {
@@ -948,34 +1296,48 @@ _1:
     }
     return erMessage("Symbol ';' expected");
 _2:
-    if(isProcedureBody()) {
+    if(isProcedureBody(proc)) {
         goto _3;
     }
     return erMessage("Procedure body expected");
 _3:
-    if(isIdent()) {
+    std::string name;
+    if(isIdent(name)) {
+        if (name != proc->getIdent().name) {
+            return erMessage("Begin and end procedure names are different");
+        }
         goto _end;
     }
     return erMessage("Name of Procedure expected");
 _end:
+    if (procedure) {
+        // ProcContext* proc = new Procedure(heading, body);
+        (*procedure) = new NamedArtefact(name, proc, proc->getIdent().access);
+        proc->setNamedArtefact(*procedure);
+    }
+    // declaration = oldDeclaration;
     return true;
 }
 
 //-----------------------------------------------------------------------------
 // ProcedureHeading = PROCEDURE identdef [FormalParameters].
-bool ModuleCompiler::isProcedureHeading() {
+bool ModuleCompiler::isProcedureHeading(Procedure* proc) {
 //_0:
     if(isKeyWord("PROCEDURE")) {
         goto _1;
     }
     return false;
 _1:
-    if(isIdentdef()) {
+    Identdef id;
+    if(isIdentdef(id)) {
+        proc->setIdent(id);
         goto _2;
     }
     return erMessage("Identdef expected");
 _2:
-    if(isFormalParameters()) {
+    FormalParameters* fp = nullptr;
+    if(isFormalParameters(&fp)) {
+        proc->setFormalParameters(fp);
         goto _end;
     }
     goto _end;
@@ -986,10 +1348,18 @@ _end:
 //-----------------------------------------------------------------------------
 // ProcedureBody = DeclarationSequence [BEGIN StatementSequence]
 //                 [RETURN expression] END.
-bool ModuleCompiler::isProcedureBody() {
+bool ModuleCompiler::isProcedureBody(Procedure* proc) {
 //_0:
-    if(isDeclarationSequence()) {
+    DeclarationSequence* ds = proc->getDeclaration();
+    DeclarationSequence* oldDeclaration = declaration;
+    ProcedureBody body;
+    body.result = nullptr;
+    StatementSequence* st;
+    Expression* result;
+    if(isDeclarationSequence(&ds, nullptr, nullptr)) {
         goto _1;
+    } else {
+        declaration = proc->getDeclaration();
     }
     if(isKeyWord("BEGIN")) {
         goto _2;
@@ -1013,8 +1383,11 @@ _1:
     }
     return erMessage("");
 _2:
-    if(isStatementSequence()) {
+    if(isStatementSequence(&st)) {
+        body.statement = st;
         goto _3;
+    } else {
+        body.statement = nullptr;
     }
     if(isKeyWord("RETURN")) {
         goto _4;
@@ -1032,7 +1405,8 @@ _3:
     }
     return erMessage("RETURN or END expected");
 _4:
-    if(isExpression()) {
+    if(isExpression(&result)) {
+        body.result = result;
         goto _5;
     }
     return erMessage("Expression expected");
@@ -1042,14 +1416,19 @@ _5:
     }
     return erMessage("END expected");
 _end:
+    declaration = oldDeclaration;
+    proc->setBody(body);
     return true;
 }
 
 //-----------------------------------------------------------------------------
 // StatementSequence = statement {";" statement}.
-bool ModuleCompiler::isStatementSequence() {
+bool ModuleCompiler::isStatementSequence(StatementSequence** stSeq) {
 //_0:
-    if(isStatement()) {
+    StatementSequence* cur = new StatementSequence();
+    Statement* st = nullptr;
+    if(isStatement(&st)) {
+        cur->addStatement(st);
         goto _1;
     }
     if(isSymbol(moduleStr[pos], ';')) {
@@ -1068,7 +1447,8 @@ _1:
     }
     goto _end;
 _2:
-    if(isStatement()) {
+    if(isStatement(&st)) {
+        cur->addStatement(st);
         goto _1;
     }
     if(isSymbol(moduleStr[pos], ';')) {
@@ -1079,35 +1459,50 @@ _2:
     }
     goto _end;
 _end:
+    (*stSeq) = cur;
     return true;
 }
 
 //-----------------------------------------------------------------------------
 // statement = [assignment | ProcedureCall | IfStatement | CaseStatement |
 //             WhileStatement | RepeatStatement | ForStatement].
-bool ModuleCompiler::isStatement() {
-    if(isIfStatement()) {
+bool ModuleCompiler::isStatement(Statement** st) {
+    IfStatement* ifSt = nullptr;
+    if(isIfStatement(&ifSt)) {
+        (*st) = ifSt;
         return true;
     }
-    if(isCaseStatement()) {
+    CaseStatement* caseSt = nullptr;
+    if(isCaseStatement(&caseSt)) {
+        (*st) = caseSt;
         return true;
     }
-    if(isWhileStatement()) {
+    WhileStatement* whileSt = nullptr;
+    if(isWhileStatement(&whileSt)) {
+        (*st) = whileSt;
         return true;
     }
-    if(isRepeatStatement()) {
+    RepeatStatement* repeatSt = nullptr;
+    if(isRepeatStatement(&repeatSt)) {
+        (*st) = repeatSt;
         return true;
     }
-    if(isForStatement()) {
+    ForStatement* forSt = nullptr;
+    if(isForStatement(&forSt)) {
+        (*st) = forSt;
         return true;
     }
     ///if(isAssignmentOrProcedureCall()) {
     ///    return true;
     ///}
-    if(isAssignment()) {
+    Assigment* assignmentSt = nullptr;
+    if(isAssignment(&assignmentSt)) {
+        (*st) = assignmentSt;
         return true;
     }
-    if(isProcedureCall()) {
+    ProcedureCall* callSt = nullptr;
+    if(isProcedureCall(&callSt)) {
+        (*st) = callSt;
         return true;
     }
     return false;
@@ -1115,13 +1510,20 @@ bool ModuleCompiler::isStatement() {
 
 //-----------------------------------------------------------------------------
 // assignment = designator ":=" expression.
-bool ModuleCompiler::isAssignment() {
+bool ModuleCompiler::isAssignment(Assigment** st) {
     Location l;
     storeLocation(l);
     /// Тестовая точка входа в правило
     ///std::cout << "----> isAssignment" << std::endl;
 //_0:
-    if(isDesignator()) {
+    Designator* des = nullptr;
+    Expression* exp = nullptr;
+    if(isDesignator(&des)) {
+        if (!des->getIsVar()) {
+            delete des;
+            return false;
+            // return erMessage("Only vars are assignable");
+        }
         goto _1;
     }
     restoreLocation(l);
@@ -1139,30 +1541,35 @@ _1:
     return false;
     // return erMessage("':=' expected");
 _2:
-    if(isExpression()) {
+    if(isExpression(&exp)) {
         goto _end;
     }
     return erMessage("Expression expected");
 _end:
     /// Тестовая точка выхода из правила
     ///std::cout << "isAssignmentOrProcedure ---->" << std::endl;
+    Assigment* assignment = new Assigment(des, exp);
+    (*st) = assignment;
     return true;
 }
 
 //-----------------------------------------------------------------------------
 // ProcedureCall = designator [ActualParameters].
-bool ModuleCompiler::isProcedureCall() {
+bool ModuleCompiler::isProcedureCall(ProcedureCall** st) {
 //_0:
-    if(isDesignator()) {
+    Designator* des = nullptr;
+    std::vector<Expression*> params;
+    if(isDesignator(&des)) {
         goto _1;
     }
     return false;
 _1:
-    if(isActualParameters()) {
+    if(isActualParameters(params)) {
         goto _end;
     }
     goto _end;
 _end:
+    (*st) = new ProcedureCall(des, params);
     return true;
 }
 
@@ -1170,14 +1577,18 @@ _end:
 // IfStatement = IF expression THEN StatementSequence
 //              {ELSIF expression THEN StatementSequence}
 //              [ELSE StatementSequence] END.
-bool ModuleCompiler::isIfStatement() {
+bool ModuleCompiler::isIfStatement(IfStatement** st) {
+    IfStatement* ifSt = new IfStatement();
+    StatementSequence* stSeq = nullptr;
+    Expression* exp = nullptr;
+    bool isMainExp = true;
 //_0:isAssignmentOrProcedure
     if(isKeyWord("IF")) {
         goto _1;
     }
     return false;
 _1:
-    if(isExpression()) {
+    if(isExpression(&exp)) {
         goto _2;
     }
     return erMessage("Expression expected");
@@ -1187,7 +1598,17 @@ _2:
     }
     return erMessage("Key word THEN expected");
 _3:
-    if(isStatementSequence()) {
+    if(isStatementSequence(&stSeq)) {
+        if (isMainExp) {
+            ifSt->setMainExpression(exp, stSeq);
+            exp = nullptr;
+            stSeq = nullptr;
+            isMainExp = false;
+        } else {
+            ifSt->addElsifExpression(exp, stSeq);
+            exp = nullptr;
+            stSeq = nullptr;
+        }
         goto _4;
     }
     if(isKeyWord("ELSIF")) {
@@ -1212,7 +1633,8 @@ _4:
     }
     return erMessage("ELSIF or ELSE or END expected");
 _5:
-    if(isStatementSequence()) {
+    if(isStatementSequence(&stSeq)) {
+        ifSt->setElseExpression(stSeq);
         goto _6;
     }
     if(isKeyWord("END")) {
@@ -1225,6 +1647,7 @@ _6:
     }
     return erMessage("END expected");
 _end:
+    (*st) = ifSt;
     return true;
 }
 
@@ -1234,14 +1657,24 @@ _end:
 // CaseLabelList = LabelRange {"," LabelRange}.
 // LabelRange = label [".." label].
 // label = integer | string | qualident.
-bool ModuleCompiler::isCaseStatement() {
+bool ModuleCompiler::isCaseStatement(CaseStatement** st) {
 //_0:
+    CaseStatement* caseSt = new CaseStatement();
+    Expression* exp = nullptr;
+    CaseLabelList* list = nullptr;
+    StatementSequence* stSeq = nullptr;
+    long long integer = 0;
+    std::string s;
+    Qualident qualident;
+    Context* ctx1 = nullptr;
+    Context* ctx2 = nullptr;
     if(isKeyWord("CASE")) {
         goto _1;
     }
     return false;
 _1:
-    if(isExpression()) {
+    if(isExpression(&exp)) {
+        caseSt->setExpression(exp);
         goto _2;
     }
     return erMessage("Expression expected");
@@ -1251,13 +1684,16 @@ _2:
     }
     return erMessage("Key word OF expected");
 _3:
-    if(isInteger()) {
+    if(isInteger(integer)) {
+        ctx1 = new ConstFactor(integer, declaration);
         goto _4;
     }
-    if(isString()) {
+    if(isString(s)) {
+        ctx1 = new ConstFactor(s, declaration);
         goto _4;
     }
-    if(isQualident()) {
+    if(isQualident(qualident)) {
+        ctx1 = qualident.type;
         goto _4;
     }
     return erMessage("Integer or String or Qualified Ident expected");
@@ -1269,6 +1705,8 @@ _4:
         ignore();
         goto _5;
     }
+    list->list.push_back(std::pair<Context*, Context*>(ctx1, nullptr));
+    ctx1 = nullptr;
     if(isSymbol(moduleStr[pos], ',')) {
         ++pos;
         ++column;
@@ -1283,17 +1721,23 @@ _4:
     }
     return erMessage("'..' or ',' or ':' expected");
 _5:
-    if(isInteger()) {
+    if(isInteger(integer)) {
+        ctx2 = new ConstFactor(integer, declaration);
         goto _6;
     }
-    if(isString()) {
+    if(isString(s)) {
+        ctx2 = new ConstFactor(s, declaration);
         goto _6;
     }
-    if(isQualident()) {
+    if(isQualident(qualident)) {
+        ctx2 = qualident.type;
         goto _6;
     }
     return erMessage("Integer or String or Qualified Ident expected");
 _6:
+    list->list.push_back(std::pair<Context*, Context*>(ctx1, ctx2));
+    ctx1 = nullptr;
+    ctx2 = nullptr;
     if(isSymbol(moduleStr[pos], ',')) {
         ++pos;
         ++column;
@@ -1308,7 +1752,8 @@ _6:
     }
     return erMessage("',' or ':' expected");
 _7:
-    if(isStatementSequence()) {
+    if(isStatementSequence(&stSeq)) {
+        caseSt->addCase(list, stSeq);
         goto _8;
     }
     if(isSymbol(moduleStr[pos], '|')) {
@@ -1333,61 +1778,77 @@ _8:
     }
     return erMessage("'|' or END expected");
 _end:
+    (*st) = caseSt;
     return true;
 }
 
 //-----------------------------------------------------------------------------
 // WhileStatement = WHILE expression DO StatementSequence
 //                 {ELSIF expression DO StatementSequence} END.
-bool ModuleCompiler::isWhileStatement() {
+bool ModuleCompiler::isWhileStatement(WhileStatement** st) {
     //_0:
-        if(isKeyWord("WHILE")) {
-            goto _1;
+    WhileStatement* whileSt = new WhileStatement();
+    StatementSequence* stSeq = nullptr;
+    Expression* exp = nullptr;
+    bool isMainExp = true;
+    if(isKeyWord("WHILE")) {
+        goto _1;
+    }
+    return false;
+_1:
+    if(isExpression(&exp)) {
+        goto _2;
+    }
+    return erMessage("Expression expected");
+_2:
+    if(isKeyWord("DO")) {
+        goto _3;
+    }
+    return erMessage("Key word DO expected");
+_3:
+    if(isStatementSequence(&stSeq)) {
+        if (isMainExp) {
+            whileSt->setMainExpression(exp, stSeq);
+            isMainExp = false;
+        } else {
+            whileSt->addElsifExpression(exp, stSeq);
         }
-        return false;
-    _1:
-        if(isExpression()) {
-            goto _2;
-        }
-        return erMessage("Expression expected");
-    _2:
-        if(isKeyWord("DO")) {
-            goto _3;
-        }
-        return erMessage("Key word DO expected");
-    _3:
-        if(isStatementSequence()) {
-            goto _4;
-        }
-        if(isKeyWord("ELSIF")) {
-            goto _1;
-        }
-        if(isKeyWord("END")) {
-            goto _end;
-        }
-        return erMessage("Statement Sequence or ELSIF or END expected");
-    _4:
-        if(isKeyWord("ELSIF")) {
-            goto _1;
-        }
-        if(isKeyWord("END")) {
-            goto _end;
-        }
-        return erMessage("ELSIF or END expected");
-    _end:
-        return true;
+        exp = nullptr;
+        stSeq = nullptr;
+        goto _4;
+    }
+    if(isKeyWord("ELSIF")) {
+        goto _1;
+    }
+    if(isKeyWord("END")) {
+        goto _end;
+    }
+    return erMessage("Statement Sequence or ELSIF or END expected");
+_4:
+    if(isKeyWord("ELSIF")) {
+        goto _1;
+    }
+    if(isKeyWord("END")) {
+        goto _end;
+    }
+    return erMessage("ELSIF or END expected");
+_end:
+    (*st) = whileSt;
+    return true;
 }
 
 //-----------------------------------------------------------------------------
 // RepeatStatement = REPEAT StatementSequence UNTIL expression.
-bool ModuleCompiler::isRepeatStatement() {
+bool ModuleCompiler::isRepeatStatement(RepeatStatement** st) {
 //_0:
+    Expression* exp = nullptr;
+    StatementSequence* stSeq = nullptr;
     if(isKeyWord("REPEAT")) {
         goto _1;
     }
     return false;
 _1:
-    if(isStatementSequence()) {
+    if(isStatementSequence(&stSeq)) {
         goto _2;
     }
     if(isKeyWord("UNTIL")) {
@@ -1400,25 +1861,32 @@ _2:
     }
     return erMessage("Key word UNTIL expected");
 _3:
-    if((isExpression())) {
+    if((isExpression(&exp))) {
         goto _end;
     }
     return erMessage("Expression expected");
 _end:
+    RepeatStatement* repeatSt = new RepeatStatement(exp, stSeq);
+    (*st) = repeatSt;
     return true;
 }
 
 //-----------------------------------------------------------------------------
 // ForStatement = FOR ident ":=" expression TO expression [BY ConstExpression]
 //                DO StatementSequence END.
-bool ModuleCompiler::isForStatement() {
+bool ModuleCompiler::isForStatement(ForStatement** st) {
 //_0:
+    std::string ident;
+    StatementSequence* stSeq = nullptr;
+    Expression* start = nullptr;
+    Expression* stop = nullptr;
+    ConstFactor* by = nullptr;
     if(isKeyWord("FOR")) {
         goto _1;
     }
     return false;
 _1:
-    if((isIdent())) {
+    if((isIdent(ident))) {
         goto _2;
     }
     return erMessage("Identifier expected");
@@ -1432,7 +1900,7 @@ _2:
     }
     return erMessage("':=' expected");
 _3:
-    if((isExpression())) {
+    if(isExpression(&start)) {
         goto _4;
     }
     return erMessage("Expression expected");
@@ -1442,7 +1910,7 @@ _4:
     }
     return erMessage("Key word TO expected");
 _5:
-    if((isExpression())) {
+    if(isExpression(&stop)) {
         goto _6;
     }
     return erMessage("Expression expected");
@@ -1455,7 +1923,7 @@ _6:
     }
     return erMessage("Key word BY or DO expected");
 _7:
-    if((isConstExpression())) {
+    if((isConstExpression(&by))) {
         goto _8;
     }
     return erMessage("Constant Expression expected");
@@ -1465,7 +1933,7 @@ _8:
     }
     return erMessage("Key word DO expected");
 _9:
-    if(isStatementSequence()) {
+    if(isStatementSequence(&stSeq)) {
         goto _10;
     }
     if(isKeyWord("END")) {
@@ -1478,111 +1946,180 @@ _10:
     }
     return erMessage("END expected");
 _end:
+    NamedArtefact* arc = declaration->getArtefactByName(ident);
+    if (!arc) {
+        return erMessage("Variable " + ident + " is not declarated");
+    }
+    Context* ctx = arc->getContext();
+    VarContext* var = dynamic_cast<VarContext*>(ctx);
+    if (!var) {
+        return erMessage("Variable " + ident + " has empty context");
+    }
+    if (!dynamic_cast<TypeIntegerContext*>(var->getType())) {
+        return erMessage("Variable " + ident + " must be integer");
+    }
+    if (!by) {
+        by = new ConstFactor((long long) 1, declaration);
+    }
+    ForStatement* forSt = new ForStatement(var, start, stop, by, stSeq);
+    (*st) = forSt;
     return true;
 }
 
 
 //-----------------------------------------------------------------------------
 // expression = SimpleExpression [relation SimpleExpression].
-bool ModuleCompiler::isExpression() {
+bool ModuleCompiler::isExpression(Expression** expression) {
 //_0:
+    Relation rel;
+    Expression* exp = new Expression();
+    SimpleExpression* firstSimpleExp = nullptr;
+    SimpleExpression* secondSimpleExp = nullptr;
     std::string tmpValue = "";
-    if(isSimpleExpression()) {
+    if(isSimpleExpression(&firstSimpleExp)) {
+        exp->setFirstSimpleExpression(firstSimpleExp);
         goto _1;
     }
     return false;
 _1:
-    if(isRelation()) {
+    if(isRelation(rel)) {
         goto _2;
     }
     goto _end;
 _2:
-    if(isSimpleExpression()) {
+    if(isSimpleExpression(&secondSimpleExp)) {
+        exp->setSecondSimpleExpression(rel, secondSimpleExp, declaration->getArtefactByName("BOOLEAN")->getContext()->getType());
         goto _end;
     }
     return erMessage("Simple Expression expected");
 _end:
+    (*expression) = exp;
     return true;
 }
 
 //-----------------------------------------------------------------------------
 // SimpleExpression = ["+" | "-"] term {AddOperator term}.
-bool ModuleCompiler::isSimpleExpression() {
+bool ModuleCompiler::isSimpleExpression(SimpleExpression** expression) {
 //_0:
     std::string tmpValue = "";
+    UnaryOperator unaryOp = UnaryOperator::NONE;
+    BinaryOperator op;
+    Term* term = nullptr;
+    SimpleExpression* exp = new SimpleExpression();
+    bool isFirst = true;
     if(isSymbol(moduleStr[pos], '+')) {
         ++pos;
         ++column;
         ignore();
+        unaryOp = UnaryOperator::UN_PLUS;
         goto _1;
     }
     if(isSymbol(moduleStr[pos], '-')) {
         ++pos;
         ++column;
         ignore();
+        unaryOp = UnaryOperator::UN_MINUS;
         goto _1;
     }
-    if(isTerm()) {
+    if(isTerm(&term)) {
+        exp->setStartTerm(unaryOp, term);
+        term = nullptr;
+        isFirst = false;
         goto _2;
     }
     return false;
 _1:
-    if(isTerm()) {
+    if(isTerm(&term)) {
+        if (isFirst) {
+            exp->setStartTerm(unaryOp, term);
+            isFirst = false;
+        } else {
+            exp->addTerm(op, term);
+        }
+        term = nullptr;
         goto _2;
     }
     return erMessage("Term expected");
 _2:
-    if(isAddOperator()) {
+    if(isAddOperator(op)) {
         goto _1;
     }
     goto _end;
 _end:
+    (*expression) = exp;
     return true;
 }
 
 //-----------------------------------------------------------------------------
 // term = factor {MulOperator factor}.
-bool ModuleCompiler::isTerm() {
+bool ModuleCompiler::isTerm(Term** term) {
 //_0:
-    if(isFactor()) {
+    BinaryOperator op;
+    Factor* factor = nullptr;
+    Term* cur = new Term();
+    if(isFactor(&factor)) {
+        cur->setStartFactor(factor);
+        factor = nullptr;
         goto _1;
     }
     return false;
 _1:
-    if(isMulOperator()) {
+    if(isMulOperator(op)) {
         goto _2;
     }
     goto _end;
 _2:
-    if(isFactor()) {
+    if(isFactor(&factor)) {
+        cur->addFactor(op, factor);
+        factor = nullptr;
         goto _1;
     }
     return erMessage("Factor expected");
 _end:
+    (*term) = cur;
     return true;
 }
 
 //-----------------------------------------------------------------------------
 // factor = number | string | NIL | TRUE | FALSE |
 //       set | designator [ActualParameters] | "(" expression ")" | "~" factor.
-bool ModuleCompiler::isFactor() {
+bool ModuleCompiler::isFactor(Factor** factor) {
 //_0:
+    Set* st = nullptr;
+    DesignatorWrapper* des;
+    Expression* exp = nullptr;
+    std::vector<Expression*> params;
+    Factor* negFactor = nullptr;
+    ConstFactor* constFactor = nullptr;
+    std::string str;
+    std::variant<long long, double> number;
     if(isKeyWord("NIL")) {
+        NIL n;
+        *factor = new Factor(new ConstFactor(n, declaration));
         goto _end;
     }
     if(isKeyWord("TRUE")) {
+        *factor = new Factor(new ConstFactor(true, declaration));
         goto _end;
     }
     if(isKeyWord("FALSE")) {
+        *factor = new Factor(new ConstFactor(false, declaration));
         goto _end;
     }
-    if(isString()) {
+    if(isString(str)) {
+        *factor = new Factor(new ConstFactor(str, declaration));
         goto _end;
     }
-    if(isNumber()) {
+    if(isNumber(number)) {
+        if (number.index() == 0) {
+            *factor = new Factor(new ConstFactor(std::get<long long>(number), declaration));
+        } else {
+            *factor = new Factor(new ConstFactor(std::get<double>(number), declaration));
+        }
         goto _end;
     }
-    if(isSet()) {
+    if(isSet(&st)) {
+        (*factor) = new Factor(st);
         goto _end;
     }
     if(isSymbol(moduleStr[pos], '(')) {
@@ -1597,12 +2134,17 @@ bool ModuleCompiler::isFactor() {
         ignore();
         goto _3;
     }
-    if(isDesignator()) {
+    des = new DesignatorWrapper();
+    des->designator = nullptr;
+    des->params = nullptr;
+    if(isDesignator(&(des->designator))) {
         goto _4;
     }
+    delete des;
     return false;
 _1:
-    if(isExpression()) {
+    if(isExpression(&exp)) {
+        (*factor) = new Factor(exp);
         goto _2;
     }
     return erMessage("Expression expected");
@@ -1615,28 +2157,93 @@ _2:
     }
     return erMessage("Right bracket expected");
 _3:
-    if(isFactor()) {
+    if(isFactor(&negFactor)) {
+        (*factor) = new Factor(negFactor);
         goto _end;
     }
     return erMessage("Factor expected");
 _4:
-    if(isActualParameters()) {
-        goto _end;
+    if(isActualParameters(params)) {
+        des->params = new ActualParameters(params);
     }
+    (*factor) = new Factor(des);
     goto _end;
 _end:
     return true;
 }
 
 //-----------------------------------------------------------------------------
-// designator = qualident {selector}.
-// selector = "." ident | "[" ExpList "]" | "^" | "(" qualident ")".
-bool ModuleCompiler::isDesignator() {
+// ConstDesignator = ident ["." ident].
+// Константные десигнаторы могут опираться лишь на константные переменные,
+// то есть, отсутствует проверка типа, взаимодействия с указателями и
+// обращения к массивам. По тем же соображениям, цепочка не может содержать
+// более 2х идентификаторов
+bool ModuleCompiler::isConstDesignator(ConstFactor** factor) {
     Location l;
 //_0:
-    if(isQualident()) {
+    std::string ident1;
+    std::string ident2;
+    if(isIdent(ident1)) {
         goto _1;
     }
+    return false;
+_1:
+    if(isSymbol(moduleStr[pos], '.')) {
+        ++pos;
+        ++column;
+        ignore();
+        goto _2;
+    }
+    goto _end;
+_2:
+    if(isIdent(ident2)) {
+        goto _end;
+    }
+    return erMessage("'.' expected");
+_end:
+    if (ident2.empty()) {
+        if (factor) {
+            *factor = declaration->getConstFactorByName(ident1);
+            if (!(*factor)) {
+                return erMessage(ident1 + " wasn't declarated");
+            }
+        }
+    } else {
+        DeclarationSequence* import = declaration->getDeclarationSequenceFromImport(ident1);
+        if (!import) {
+            return erMessage(ident1 + " wasn't imported");
+        }
+        if (factor) {
+            *factor = import->getConstFactorByName(ident2);
+            if (!(*factor)) {
+                return erMessage(ident2 + " wasn't declarated in import " + ident1);
+            }
+        }
+    }
+    return true;
+}
+
+//-----------------------------------------------------------------------------
+// designator = qualident {selector}.
+// selector = "." ident | "[" ExpList "]" | "^" | "(" qualident ")".
+bool ModuleCompiler::isDesignator(Designator** des) {
+    Location l;
+//_0:
+    Designator* cur = new Designator();
+    Context* ctx = nullptr;
+    std::string ident;
+    std::vector<Expression*> exps;
+    Expression* exp = nullptr;
+    Qualident qual;
+    if(isQualident(qual)) {
+        cur->addQualident(qual);
+        // TODO проверять, что десигнатор обозначает переменную или процеруду, кроме случая exp IS T
+        // if (!qual.isVariable) {
+        //     return erMessage("Designator's qualident must be variable or procedure");
+        // }
+        goto _1;
+    }
+    delete cur;
     return false;
 _1:
     if(isSymbol(moduleStr[pos], '.')) {
@@ -1655,6 +2262,7 @@ _1:
         ++pos;
         ++column;
         ignore();
+        cur->addPointerSelector();
         goto _1;
     }
     if(isSymbol(moduleStr[pos], '(')) {
@@ -1671,12 +2279,15 @@ _1:
     }
     goto _end;
 _2:
-    if(isIdent()) {
+    if(isIdent(ident)) {
+        cur->addRecordSelector(ident);
         goto _1;
     }
     return erMessage("'.' expected");
 _3:
-    if(isExpression()) {
+    if(isExpression(&exp)) {
+        exps.push_back(exp);
+        exp = nullptr;
         goto _4;
     }
     return erMessage("ExpList expected");
@@ -1685,6 +2296,8 @@ _4:
         ++pos;
         ++column;
         ignore();
+        cur->addIndexSelector(exps);
+        exps.clear();
         goto _1;
     }
     if(isSymbol(moduleStr[pos], ',')) {
@@ -1695,7 +2308,11 @@ _4:
     }
     return erMessage("']' or ',' expected");
 _5:
-    if(isQualident()) {
+    if(isQualident(qual)) {
+        if (qual.isVariable || qual.isConstant) {
+            restoreLocation(l);
+            return false;
+        }
         goto _6;
     }
     // Возможна процедура без параметров. Поэтому откат на анализ
@@ -1708,6 +2325,7 @@ _6:
         ++pos;
         ++column;
         ignore();
+        cur->addAssertSelector(qual);
         goto _1;
     }
     // Здесь возможен возврат обозначения без круглых скобок,
@@ -1721,14 +2339,18 @@ _6:
     goto _end;
     ///return erMessage("')' expected");
 _end:
+    (*des) = cur;
     return true;
 }
 
 //-----------------------------------------------------------------------------
 // set = "{" [element {"," element}] "}".
 // element = expression [".." expression].
-bool ModuleCompiler::isSet() {
+bool ModuleCompiler::isSet(Set** st) {
 //_0:
+    Expression* exp1 = nullptr;
+    Expression* exp2 = nullptr;
+    Set* cur = new Set(declaration->getArtefactByName("SET")->getContext()->getType());
     if(isSymbol(moduleStr[pos], '{')) {
         ++pos;
         ++column;
@@ -1743,7 +2365,7 @@ _1:
         ignore();
         goto _end;
     }
-    if(isExpression()) {
+    if(isExpression(&exp1)) {
         goto _2;
     }
     return erMessage("'}' or Expression expected");
@@ -1755,6 +2377,8 @@ _2:
         ignore();
         goto _3;
     }
+    cur->addElement(exp1, nullptr);
+    exp1 = nullptr;
     if(isSymbol(moduleStr[pos], '}')) {
         ++pos;
         ++column;
@@ -1769,7 +2393,10 @@ _2:
     }
     return erMessage("'..'or '}' or ',' expected");
 _3:
-    if(isExpression()) {
+    if(isExpression(&exp2)) {
+        cur->addElement(exp1, exp2);
+        exp1 = nullptr;
+        exp2 = nullptr;
         goto _4;
     }
     return erMessage("Expression expected");
@@ -1788,6 +2415,7 @@ _4:
     }
     return erMessage("'}' or ',' expected");
 _end:
+    (*st) = cur;
     return true;
 }
 
@@ -1803,12 +2431,13 @@ _end:
 */
 
 //-----------------------------------------------------------------------------
-// ActualParameters = "(" [ExpList] ")" .
-// ExpList = expression {"," expression}.
-bool ModuleCompiler::isActualParameters() {
+// ConstActualParameters = "(" [ConstExpList] ")" .
+// ConstExpList = ConstExpression {"," ConstExpression}.
+bool ModuleCompiler::isConstActualParameters(std::vector<ConstFactor*>& factors) {
     /// Тестовая точка входа в правило
-    ///std::cout << "----> isActualParameters" << std::endl;
+    ///std::cout << "----> isConstActualParameters" << std::endl;
 //_0:
+    ConstFactor* factor;
     if(isSymbol(moduleStr[pos], '(')) {
         ++pos;
         ++column;
@@ -1823,7 +2452,58 @@ _1:
         ignore();
         goto _end;
     }
-    if(isExpression()) {
+    if(isConstExpression(&factor)) {
+        factors.push_back(factor);
+        factor = nullptr;
+        goto _2;
+    }
+    return erMessage("')' or Expression expected");
+_2:
+    if(isSymbol(moduleStr[pos], ')')) {
+        ++pos;
+        ++column;
+        ignore();
+        goto _end;
+    }
+    if(isSymbol(moduleStr[pos], ',')) {
+        ++pos;
+        ++column;
+        ignore();
+        goto _1;
+    }
+    return erMessage("')' or ',' expected");
+_end:
+    /// Тестовая точка входа в правило
+    ///std::cout << "isActualParameters ---->OK" << std::endl;
+    return true;
+}
+
+//-----------------------------------------------------------------------------
+// ActualParameters = "(" [ExpList] ")" .
+// ExpList = expression {"," expression}.
+bool ModuleCompiler::isActualParameters(std::vector<Expression*>& params) {
+    /// Тестовая точка входа в правило
+    ///std::cout << "----> isActualParameters" << std::endl;
+//_0:
+    params.clear();
+    Expression* exp = nullptr;
+    if(isSymbol(moduleStr[pos], '(')) {
+        ++pos;
+        ++column;
+        ignore();
+        goto _1;
+    }
+    return false;
+_1:
+    if(isSymbol(moduleStr[pos], ')')) {
+        ++pos;
+        ++column;
+        ignore();
+        goto _end;
+    }
+    if(isExpression(&exp)) {
+        params.push_back(exp);
+        exp = nullptr;
         goto _2;
     }
     return erMessage("')' or Expression expected");
@@ -1854,7 +2534,7 @@ _end:
 // Идентификатор без игнорируемых символов - основа всех других буквенно-цифровых
 // конструкций
 // Id = Letter {Letter | Digit}.
-bool ModuleCompiler::isId() {
+bool ModuleCompiler::isId(std::string& id) {
     Location l;
     storeLocation(l);
     std::string tmpValue = "";
@@ -1872,16 +2552,16 @@ bool ModuleCompiler::isId() {
             lexValue = tmpValue;
             /// Тестовый вывод (закомментировать после отработки)
             ///testMessage("It's Identdef = " + lexValue);
+            std::swap(id, tmpValue);
             return true;
         }
     }
     return false;
 }
 
-
 // Ident = Letter {Letter | Digit}.
-bool ModuleCompiler::isIdent() {
-    if(isId()) {
+bool ModuleCompiler::isIdent(std::string& ident) {
+    if(isId(ident)) {
         /// Тестовый вывод (закомментировать после отработки)
         testMessage("It's Identdef = " + lexValue);
         ignore();
@@ -1891,14 +2571,17 @@ bool ModuleCompiler::isIdent() {
 }
 
 // identdef = ident ["*"].
-bool ModuleCompiler::isIdentdef() {
+bool ModuleCompiler::isIdentdef(Identdef& ident) {
     std::string tmpValue = "";
-    if(isId()) {
+    if(isId(ident.name)) {
         // Возможна звездочка
         if(isSymbol(moduleStr[pos], '*')) {
             ++pos;
             ++column;
             lexValue += '*';
+            ident.access = true;
+        } else {
+            ident.access = false;
         }
         /// Тестовый вывод (закомментировать после отработки)
         testMessage("It's Identdef = " + lexValue);
@@ -1909,11 +2592,19 @@ bool ModuleCompiler::isIdentdef() {
 }
 
 // qualident = [ident "."] ident.
-bool ModuleCompiler::isQualident() {
+bool ModuleCompiler::isQualident(Qualident& qualident, bool createIfNotExists) {
+    std::string ident1, ident2;
+    qualident.type = nullptr;
+    qualident.idents.clear();
+    qualident.isVariable = false;
+    qualident.isConstant = false;
+    Location constExp;
+    storeLocation(constExp);
     Location l;
     std::string tmpValue = "";
     // Проверка на первый идентификатор
-    if(isId()) {
+    if(isId(ident1)) {
+        qualident.idents.push_back(ident1);
         tmpValue = lexValue;
         goto _1;
     }
@@ -1926,12 +2617,79 @@ _1:
         ++pos;
         ++column;
         goto _2;
+    } else {
+        NamedArtefact* art = declaration->getArtefactByName(ident1);
+        if (!art) {
+            if (createIfNotExists) {
+                declaration->incNotInit();
+                TypeRecordContext* rec = new TypeRecordContext(nullptr, false);
+                NamedArtefact* newArt = new NamedArtefact(ident1, rec, false);
+                rec->setNamedArtefact(newArt);
+                declaration->addNamedArtefact(newArt);
+                qualident.type = rec;
+                qualident.isVariable = true;
+            } else {
+                restoreLocation(constExp);
+                ConstFactor* factor = nullptr;
+                if (isConstExpression(&factor)) {
+                    qualident.type = factor->getResultType();
+                    qualident.isVariable = false;
+                    qualident.isConstant = true;
+                } else {
+                    return erMessage("Invalid qualident '" + tmpValue + "'");
+                }
+            }
+        } else {
+            Context* ctx = art->getContext();
+            qualident.type = ctx->getType();
+            if (ctx != qualident.type || dynamic_cast<ProcContext*>(ctx)) {
+                qualident.isVariable = true;
+            }
+        }
     }
     goto _end;
 _2:
     // Проверка на второй идентификатор
-    if(isId()) {
+    if(isId(ident2)) {
+        qualident.idents.push_back(ident2);
         tmpValue += '.' + lexValue;
+        DeclarationSequence* ds = declaration->getDeclarationSequenceFromImport(ident1);
+        if (ds) {
+            NamedArtefact* art = ds->getArtefactByName(ident2);
+            if (!art) {
+                return erMessage("Invalid qualident '" + tmpValue + "'");
+            }
+            Context* ctx = art->getContext();
+            qualident.type = ctx->getType();
+            if (ctx != qualident.type || dynamic_cast<ProcContext*>(ctx)) {
+                qualident.isVariable = true;
+            }
+            qualident.type->setImportFrom(ident1);
+        } else {
+            NamedArtefact* rec = declaration->getArtefactByName(ident1);
+            if (!rec) {
+                return erMessage("Invalid qualident '" + tmpValue + "'");
+            }
+            Context* ctx = rec->getContext();
+            if (ctx != ctx->getType() || dynamic_cast<ProcContext*>(ctx)) {
+                qualident.isVariable = true;
+            } else {
+                return erMessage("Invalid qualident '" + tmpValue + "'");
+            }
+            TypeRecordContext* record = dynamic_cast<TypeRecordContext*>(ctx->getType());
+            if (!record) {
+                return erMessage("Invalid qualident '" + tmpValue + "'");
+            }
+            ds = record->getDeclaration();
+            if (!ds) {
+                return erMessage("Invalid qualident '" + tmpValue + "'");
+            }
+            NamedArtefact* art = ds->getArtefactByName(ident2);
+            if (!art) {
+                return erMessage("Invalid qualident '" + tmpValue + "'");
+            }
+            qualident.type = art->getContext()->getType();
+        }
         goto _end;
     }
     // Если не второй идентификатор, то возможен qualid из одного перед перечислением
@@ -1947,7 +2705,7 @@ _end:
 }
 
 // KeyWord.
-bool ModuleCompiler::isKeyWord(const std::string&& str) {
+bool ModuleCompiler::isKeyWord(const std::string& str) {
     Location l;
     storeLocation(l);
     std::string tmpValue = "";
@@ -1987,46 +2745,54 @@ bool ModuleCompiler::isAssignSymbol() {
 
 //-----------------------------------------------------------------------------
 // relation = "=" | "#" | "<" | "<=" | ">" | ">=" | IN | IS.
-bool ModuleCompiler::isRelation() {
+bool ModuleCompiler::isRelation(Relation& rel) {
     if(moduleStr[pos]=='=') {
         ++pos;
         ++column;
         lexValue = "=";
         ignore();
+        rel = Relation::EQUAL;
         return true;
     } else if(moduleStr[pos]=='#') {
         ++pos;
         ++column;
         lexValue = "#";
         ignore();
+        rel = Relation::UNEQUAL;
         return true;
     } else if(moduleStr[pos]=='<' && moduleStr[pos+1]=='=') {
         pos += 2;
         column += 2;
         lexValue = "<=";
         ignore();
+        rel = Relation::LESS_OR_EQUAL;
         return true;
     } else if(moduleStr[pos]=='<') {
         ++pos;
         ++column;
         lexValue = "<";
         ignore();
+        rel = Relation::LESS;
         return true;
     } else if(moduleStr[pos]=='>' && moduleStr[pos+1]=='=') {
         pos += 2;
         column += 2;
         lexValue = ">=";
         ignore();
+        rel = Relation::GREATER_OR_EQUAL;
         return true;
     } else if(moduleStr[pos]=='>') {
         ++pos;
         ++column;
         lexValue = ">";
         ignore();
+        rel = Relation::GREATER;
         return true;
     } else if(isKeyWord("IN")) {
+        rel = Relation::SET_MEMBERSHIP;
         return true;
     } else if(isKeyWord("IS")) {
+        rel = Relation::TYPE_TEST;
         return true;
     }
     return false;
@@ -2034,21 +2800,24 @@ bool ModuleCompiler::isRelation() {
 
 //-----------------------------------------------------------------------------
 // AddOperator = "+" | "-" | OR.
-bool ModuleCompiler::isAddOperator() {
+bool ModuleCompiler::isAddOperator(BinaryOperator& op) {
     if(moduleStr[pos]=='+') {
         ++pos;
         ++column;
         lexValue = "+";
         ignore();
+        op = BinaryOperator::PLUS;
         return true;
     } else if(moduleStr[pos]=='-') {
         ++pos;
         ++column;
         lexValue = "-";
         ignore();
+        op = BinaryOperator::MINUS;
         return true;
     } else if(isKeyWord("OR")) {
         ignore();
+        op = BinaryOperator::OR;
         return true;
     }
     return false;
@@ -2056,30 +2825,35 @@ bool ModuleCompiler::isAddOperator() {
 
 //-----------------------------------------------------------------------------
 // MulOperator = "*" | "/" | DIV | MOD | "&".
-bool ModuleCompiler::isMulOperator() {
+bool ModuleCompiler::isMulOperator(BinaryOperator& op) {
     if(moduleStr[pos]=='*') {
         ++pos;
         ++column;
         lexValue = "*";
         ignore();
+        op = BinaryOperator::PRODUCT;
         return true;
     } else if(moduleStr[pos]=='/') {
         ++pos;
         ++column;
         lexValue = "/";
         ignore();
+        op = BinaryOperator::QUOTIENT;
         return true;
     } else if(moduleStr[pos]=='&') {
         ++pos;
         ++column;
         lexValue = "&";
         ignore();
+        op = BinaryOperator::LOGICAL_CONJUNCTION;
         return true;
     } else if(isKeyWord("DIV")) {
         ignore();
+        op = BinaryOperator::INTEGER_QUOTIENT;
         return true;
     } else if(isKeyWord("MOD")) {
         ignore();
+        op = BinaryOperator::MODULUS;
         return true;
     }
     return false;
@@ -2087,11 +2861,15 @@ bool ModuleCompiler::isMulOperator() {
 
 //-----------------------------------------------------------------------------
 // number = integer | real.
-bool ModuleCompiler::isNumber() {
-    if(isReal()) {
+bool ModuleCompiler::isNumber(std::variant<long long, double>& number) {
+    double real;
+    if(isReal(real)) {
+        number = real;
         return true;
     }
-    if(isInteger()) {
+    long long integer;
+    if(isInteger(integer)) {
+        number = integer;
         return true;
     }
     return false;
@@ -2100,7 +2878,7 @@ bool ModuleCompiler::isNumber() {
 //-----------------------------------------------------------------------------
 // digit {digit} "." {digit} [ScaleFactor].
 // ScaleFactor = "E" ["+" | "-"] digit {digit}.
-bool ModuleCompiler::isReal() {
+bool ModuleCompiler::isReal(double& real) {
 //_0:
     Location l;
     storeLocation(l);
@@ -2118,6 +2896,10 @@ _1:
         ++pos;
         ++column;
         goto _1;
+    }
+    if (moduleStr[pos]=='.' && moduleStr[pos + 1]=='.') {
+        restoreLocation(l);
+        return false;
     }
     if(moduleStr[pos]=='.') {
         tmpValue += moduleStr[pos];
@@ -2178,12 +2960,16 @@ _end:
     /// Тестовый вывод (закомментировать после отработки)
     testMessage("It's Real = " + lexValue);
     ignore();
+    std::istringstream strToDouble(lexValue);
+    if (!(strToDouble >> real)) {
+        return erMessage("Bad real value");
+    }
     return true;
 }
 
 //-----------------------------------------------------------------------------
 // digit {digit} | digit {hexDigit} "H".
-bool ModuleCompiler::isInteger() {
+bool ModuleCompiler::isInteger(long long& integer) {
 //_0:
     ///storeLocation(l);
     std::string tmpValue = "";
@@ -2234,11 +3020,24 @@ _end:
     /// Тестовый вывод (закомментировать после отработки)
     testMessage("It's Integer = " + lexValue);
     ignore();
+    if (lexValue.back() == 'H') {
+        lexValue.pop_back();
+        std::stringstream strToInteger;
+        strToInteger << std::hex << lexValue;
+        if (!(strToInteger >> integer)) {
+            return erMessage("Bad integer value");
+        }
+    } else {
+        std::istringstream strToInteger(lexValue);
+        if (!(strToInteger >> integer)) {
+            return erMessage("Bad integer value");
+        }
+    }
     return true;
 }
 
 // string = """ {character} """ | digit {hexDigit} "X".
-bool ModuleCompiler::isString() {
+bool ModuleCompiler::isString(std::string& str) {
     Location l;
     storeLocation(l);
 //_0:
@@ -2291,9 +3090,14 @@ _end:
     /// Тестовый вывод (закомментировать после отработки)
     testMessage("It's String = " + lexValue);
     ignore();
+    str.swap(tmpValue);
     return true;
 }
 
+bool ModuleCompiler::isString() {
+    std::string str;
+    return isString(str);
+}
 // comment = "(*" {character} "*)".
 bool ModuleCompiler::isComment() {
 //_0:
@@ -2400,6 +3204,7 @@ bool ModuleCompiler::isEndOfString() {
 // Выдача сообщения об ошибке
 bool ModuleCompiler::erMessage(std::string&& str) {
     // Вывод сообщения об ошибке
+    errCnt++;
     std::cout << "ERROR ("
               << line << ", "
               << column << " {"
