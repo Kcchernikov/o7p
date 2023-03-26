@@ -1,6 +1,7 @@
 #include "statement.h"
 #include "declaration.h"
 #include "expression.h"
+#include "validate.h"
 
 #include <iostream>
 
@@ -9,6 +10,15 @@ void Statement::debugOut(size_t tabcnt) {
 }
 
 Assigment::Assigment(Designator* des, Expression* exp): designator(des), expression(exp) {
+    if (!des || !des->getIsVar()) {
+        assert(false && "Designator in assigment must be a variable");  
+    }
+    if (!exp) {
+        assert(false && "Expression must not be null");  
+    }
+    if (!IsComparable(des->getType(), exp->getResultType())) {
+        assert(false && "Not comparable types in expression");  
+    }
 }
 
 void Assigment::debugOut(size_t tabcnt) {
@@ -18,8 +28,8 @@ void Assigment::debugOut(size_t tabcnt) {
     expression->debugOut();
 }
 
-ProcedureCall::ProcedureCall(Designator* des, const std::vector<Expression*> params): designator(des), params(params) {
-    // TODO validate params
+ProcedureCall::ProcedureCall(Designator* des, const std::vector<Expression*>& params): designator(des), params(params) {
+    ValidateParameters(des, params);
 }
 
 void ProcedureCall::debugOut(size_t tabcnt) {
@@ -39,10 +49,16 @@ IfStatement::IfStatement(): els(nullptr) {
 }
 
 void IfStatement::setMainExpression(Expression *exp, StatementSequence *st) {
+    if (!exp || !dynamic_cast<TypeBoolContext*>(exp->getResultType())) {
+        assert(false && "Сonditional expressions must be boolean");  
+    }
     main = std::pair<Expression*, StatementSequence*>(exp, st);
 }
 
 void IfStatement::addElsifExpression(Expression *exp, StatementSequence *st) {
+    if (!exp || !dynamic_cast<TypeBoolContext*>(exp->getResultType())) {
+        assert(false && "Сonditional expressions must be boolean");  
+    }
     elsif.push_back(std::pair<Expression*, StatementSequence*>(exp, st));
 }
 
@@ -72,10 +88,32 @@ void IfStatement::debugOut(size_t tabcnt) {
 }
 
 void CaseStatement::setExpression(Expression *exp) {
+    if (!exp) {
+        assert(false && "Сonditional expressions must not be null");  
+    }
     expression = exp;
 }
 
 void CaseStatement::addCase(CaseLabelList* labelList, StatementSequence* st) {
+    if (!labelList) {
+        assert(false && "Label list must not be empty");  
+    }
+    for (auto p : labelList->list) {
+        TypeContext* type = p.first->getType();
+        if (p.second) {
+            // В таком случае типы должны быть одинаковыми и быть либо integer, либо byte, либо string
+            if (!IsComparable(type, p.second->getType())) {
+                assert(false && "Label list's types must be the same");  
+            }
+            if (!dynamic_cast<TypeIntegerContext*>(type) && !!dynamic_cast<TypeByteContext*>(type)) {
+                // TODO понять, допускаются ли здесь строки
+                assert(false && "Label list's types must be integer or byte");  
+            }
+        }
+        if (!IsComparable(expression->getResultType(), type)) {
+            assert(false && "Expression and label types must be comparable");
+        }
+    }
     cases.push_back(std::pair<CaseLabelList*, StatementSequence*>(labelList, st));
 }
 
@@ -84,10 +122,16 @@ void CaseStatement::debugOut(size_t tabcnt) {
 }
 
 void WhileStatement::setMainExpression(Expression *exp, StatementSequence *st) {
+    if (!exp || !dynamic_cast<TypeBoolContext*>(exp->getResultType())) {
+        assert(false && "Сonditional expressions must be boolean");  
+    }
     main = std::pair<Expression*, StatementSequence*>(exp, st);
 }
 
 void WhileStatement::addElsifExpression(Expression *exp, StatementSequence *st) {
+    if (!exp || !dynamic_cast<TypeBoolContext*>(exp->getResultType())) {
+        assert(false && "Сonditional expressions must be boolean");  
+    }
     elsif.push_back(std::pair<Expression*, StatementSequence*>(exp, st));
 }
 
@@ -96,6 +140,9 @@ void WhileStatement::debugOut(size_t tabcnt) {
 }
 
 RepeatStatement::RepeatStatement(Expression* exp, StatementSequence* st): expression(exp), stSeq(st) {
+    if (!exp || !dynamic_cast<TypeBoolContext*>(exp->getResultType())) {
+        assert(false && "Сonditional expressions must be boolean");  
+    }
 }
 
 void RepeatStatement::debugOut(size_t tabcnt) {
@@ -109,6 +156,14 @@ ForStatement::ForStatement(
     ConstFactor* by,
     StatementSequence* st
 ): ident(id), start(start), stop(stop), by(by), stSeq(st) {
+    if (!dynamic_cast<TypeIntegerContext*>(id->getType())) {
+        assert(false && "Variable must be integer");
+    }
+    if (!dynamic_cast<TypeIntegerContext*>(start->getResultType()) ||
+        !dynamic_cast<TypeIntegerContext*>(stop->getResultType())  ||
+        !dynamic_cast<TypeIntegerContext*>(by->getResultType())) {
+        assert(false && "For expressions must be integer");
+    }
 }    
 
 void ForStatement::debugOut(size_t tabcnt) {

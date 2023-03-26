@@ -5,13 +5,8 @@ CONST len = 256;
 VAR value: ARRAY len OF INTEGER; i : INTEGER;
 BEGIN
  i := 0;
- WHILE (i < len) & (value[i] # 10) DO
-  value[i] := i;
-  i := i + 1;
-  (* INC(I) *)
- END
 END Ask;
 
 BEGIN
- Ask(1)
+ Ask();
 END Init.

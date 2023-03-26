@@ -32,7 +32,7 @@ private:
 
 class ProcedureCall: public Statement {
 public:
-    ProcedureCall(Designator* des, const std::vector<Expression*> params);
+    ProcedureCall(Designator* des, const std::vector<Expression*>& params);
     void debugOut(size_t tabcnt = 0);
 private:
     Designator* designator;

@@ -77,7 +77,7 @@ public:
     ConstFactor(ConstFactor* factor);
 
     // Вывод отладочной информации
-    void debugOut(size_t tabcnt = 0);
+    void debugOut(size_t tabcnt = 0) override;
 
     // Применение унарного оператора
     void applyUnaryOperator(UnaryOperator op);
@@ -96,6 +96,8 @@ public:
 
     // Получить тип результата
     TypeContext* getResultType();
+
+    TypeContext* getType() override;
 
     // Вызывает константную функцию
     ConstFactor* execute(std::vector<ConstFactor*> args, DeclarationSequence* ds) const;

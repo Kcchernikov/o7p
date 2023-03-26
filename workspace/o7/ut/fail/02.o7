@@ -1,0 +1,13 @@
+MODULE Init;
+
+CONST len = 256;
+
+VAR 
+  i, j, v, result: INTEGER;
+  value: ARRAY len OF INTEGER;
+  isInteger: BOOLEAN;
+
+BEGIN
+ isInteger := result IS BOOLEAN;
+
+END Init.

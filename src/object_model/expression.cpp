@@ -2,10 +2,12 @@
 #include "designator.h"
 #include "operator.h"
 #include "procedure.h"
+#include "validate.h"
 
 #include <cassert>
 #include <iostream>
 #include <optional>
+#include <vector>
 
 Set::Set(TypeContext* type): resultType(type), isVar(false) { 
 }
@@ -49,64 +51,13 @@ Factor::Factor(Set* st): value(st), isVar(false) {
 }
 
 Factor::Factor(DesignatorWrapper* wr): value(wr), isVar(wr->designator->getIsVar() && wr->params == nullptr) {
-    resultType = wr->designator->getType();
-    ProcContext* proc = dynamic_cast<ProcContext*>(resultType);
     if (wr->params) {
-        if (!proc) {
-            assert(false && "Only procedure is callable");
-        }
-        // Check params' type
-        FormalParameters* formalParams = proc->getFormalParameters();
-        std::vector<Expression*>& actualParams = wr->params->params;
-        size_t i = 0, sz = actualParams.size();
-        for (FPSection* sec : formalParams->getSections()) {
-            for (size_t j = 0; j < sec->getParameters().size(); ++j) {
-                if (i == sz) {
-                    assert(false && "Formal parameters and actual parameters must be the same length");
-                }
-                // Запрет передавать в функцию не переменную там, где параметр VAR
-                if (sec->getIsVar() && !actualParams[i++]->getIsVar()) {
-                    assert(false && "Only variable are avaliable for VAR formal type");
-                }
-                bool same = false;
-                TypeContext* actualType = actualParams[i++]->getResultType();
-                TypeContext* formalType = sec->getType();
-                if (actualType == formalType) {
-                    same = true;
-                } else {
-                    // Check record type the same
-                    // актуальный параметр должен быть потомком формального
-                    TypeRecordContext* actualRec = dynamic_cast<TypeRecordContext*>(actualType);
-                    TypeRecordContext* formalRec = dynamic_cast<TypeRecordContext*>(formalType);
-                    if (actualRec && formalRec) {
-                        if (actualRec->isOneOfParents(formalRec)) {
-                            same = true;
-                        }
-                    } else {
-                        // Check pointer type the same
-                        TypePointerContext* actualP = dynamic_cast<TypePointerContext*>(actualType);
-                        TypePointerContext* formalP = dynamic_cast<TypePointerContext*>(formalType);
-                        if (actualP && formalP && actualP->isOneOfParents(formalP)) {
-                            same = true;
-                        } else {
-                            // Check array type the same
-                            TypeArrayContext* actualArr = dynamic_cast<TypeArrayContext*>(actualType);
-                            TypeArrayContext* formalArr = dynamic_cast<TypeArrayContext*>(formalType);
-                            if (actualArr->isEqual(formalArr)) {
-                                same = true;
-                            }
-                        }
-                    }
-                }
-                if (!same) {
-                    assert(false && "Formal parameters and actual parameters must be the same type");
-                }
-            }
-        }
-        resultType = proc->getResultType();
+        resultType = ValidateParameters(wr->designator, wr->params->params);
         if (!resultType) {
             assert(false && "Procedure without result type are banned in expressions");
         }
+    } else {
+        resultType = wr->designator->getType();
     }
 }
 

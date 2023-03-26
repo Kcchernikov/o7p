@@ -7,6 +7,7 @@ CONST len = 256;
 VAR 
   i, j, v, result: INTEGER;
   value: ARRAY len OF INTEGER;
+  isInteger: BOOLEAN;
 
 PROCEDURE log2(x: INTEGER): INTEGER;
  VAR y: INTEGER; (*assume x>0*)
@@ -48,7 +49,8 @@ BEGIN
  | 3: result := 8
  END;
 
- result := log2(result)
+ result := log2(result);
+ isInteger := result IS INTEGER;
 
 END Init.
 

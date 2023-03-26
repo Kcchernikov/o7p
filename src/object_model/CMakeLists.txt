@@ -10,6 +10,7 @@ set(SOURCE_LIB
     procedure.h
     statement.h
     expression.h
+    validate.h
     
     #sources
     declaration.cpp
@@ -18,6 +19,7 @@ set(SOURCE_LIB
     procedure.cpp
     statement.cpp
     expression.cpp
+    validate.cpp
 )
 
 add_library(object_model STATIC ${SOURCE_LIB})   # Создание статической библиотеки

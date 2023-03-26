@@ -1,0 +1,28 @@
+MODULE Init;
+
+CONST maxVal = 20; constSet = {1, 2, 7, 9..15, 19..maxVal};
+
+TYPE
+	Base = RECORD
+		velo, masse: REAL
+	END;
+
+  A = RECORD (Base)
+		vela, massa: REAL
+	END;
+
+  B = RECORD (Base)
+		velb, massb: REAL
+	END;
+
+VAR 
+  a: A;
+  b: B;
+  base: Base;
+
+BEGIN
+ base := a; (*  OK   *)
+ base := b; (*  OK   *)
+ a := b;    (* ERROR *)
+
+END Init.

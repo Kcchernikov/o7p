@@ -250,6 +250,11 @@ TypeContext* ConstFactor::getResultType() {
     return resultType;
 }
 
+// Получить тип результата
+TypeContext* ConstFactor::getType() {
+    return resultType;
+}
+
 // Применение унарного оператора
 void ConstFactor::applyUnaryOperator(UnaryOperator op) {
     if (value.index() == 6) {

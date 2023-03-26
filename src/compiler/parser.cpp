@@ -94,6 +94,7 @@ ModuleCompiler::ModuleCompiler(const char* str): moduleStr{str},
     base->addConstNamedArtefact(new ConstDeclaration("CHR", new ConstFactor(CreateConstCHR(), nullptr), false));
 
     // TODO Добавить оствшиеся неконстантные функции, такие как INC, LEN, NEW
+    // base->addNamedArtefact(new NamedArtefact("LEN", new Procedure(base, new ProcedureBody())));
     declaration = base;
 }
 
@@ -1686,6 +1687,7 @@ _2:
     return erMessage("Key word OF expected");
 _3:
     if(isInteger(integer)) {
+        std::cout << "ADD CASE INT " << integer << std::endl;
         ctx1 = new ConstFactor(integer, declaration);
         goto _4;
     }
