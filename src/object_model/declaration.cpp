@@ -15,9 +15,9 @@ public:
     ConstFactor* execute(ConstFactor* arg, DeclarationSequence* resultDecl) const override {
         const auto value = arg->getValue();
         if (value.index() == 0) {
-            return new ConstFactor(abs(std::get<0>(value)), resultDecl);
+            return new ConstFactor(static_cast<long long>(abs(std::get<0>(value))), resultDecl);
         } else if (value.index() == 1) {
-            return new ConstFactor(abs(std::get<1>(value)), resultDecl);
+            return new ConstFactor(static_cast<double>(abs(std::get<1>(value))), resultDecl);
         } else {
             assert(false && "Incorect argument for constant ABS function");  
         }
@@ -32,7 +32,7 @@ public:
     ConstFactor* execute(ConstFactor* arg, DeclarationSequence* resultDecl) const override {
         const auto value = arg->getValue();
         if (value.index() == 0) {
-            return new ConstFactor(std::get<0>(value) % 2 == 1, resultDecl);
+            return new ConstFactor(static_cast<bool>(std::get<0>(value) % 2 == 1), resultDecl);
         } else {
             assert(false && "Incorect argument for constant ODD function");  
         }
@@ -48,7 +48,7 @@ public:
         const auto value1 = arg1->getValue();
         const auto value2 = arg2->getValue();
         if (value1.index() == 0 && value2.index() == 0) {
-            return new ConstFactor(std::get<0>(value1) << std::get<0>(value2), resultDecl);
+            return new ConstFactor(static_cast<long long>(std::get<0>(value1) << std::get<0>(value2)), resultDecl);
         } else {
             assert(false && "Incorect arguments for constant LSL function");  
         }
@@ -64,7 +64,7 @@ public:
         const auto value1 = arg1->getValue();
         const auto value2 = arg2->getValue();
         if (value1.index() == 0 && value2.index() == 0) {
-            return new ConstFactor(std::get<0>(value1) >> std::get<0>(value2), resultDecl);
+            return new ConstFactor(static_cast<long long>(std::get<0>(value1) >> std::get<0>(value2)), resultDecl);
         } else {
             assert(false && "Incorect arguments for constant ASR function");  
         }
@@ -96,7 +96,7 @@ public:
     ConstFactor* execute(ConstFactor* arg, DeclarationSequence* resultDecl) const override {
         const auto value = arg->getValue();
         if (value.index() == 1) {
-            return new ConstFactor(std::floor(std::get<1>(value)), resultDecl);
+            return new ConstFactor(static_cast<double>(std::floor(std::get<1>(value))), resultDecl);
         } else {
             assert(false && "Incorect argument for constant FLOOR function");  
         }
@@ -111,7 +111,7 @@ public:
     ConstFactor* execute(ConstFactor* arg, DeclarationSequence* resultDecl) const override {
         const auto value = arg->getValue();
         if (value.index() == 0) {
-            return new ConstFactor(double(std::get<0>(value)), resultDecl);
+            return new ConstFactor(static_cast<double>(std::get<0>(value)), resultDecl);
         } else {
             assert(false && "Incorect argument for constant FLT function");  
         }
@@ -127,7 +127,7 @@ public:
         // TODO 
         const auto value = arg->getValue();
         if (value.index() == 0) {
-            return new ConstFactor(double(std::get<0>(value)), resultDecl);
+            return new ConstFactor(static_cast<double>(std::get<0>(value)), resultDecl);
         } else {
             assert(false && "Incorect argument for constant ORD function");  
         }
@@ -143,7 +143,7 @@ public:
         // TODO 
         const auto value = arg->getValue();
         if (value.index() == 0) {
-            return new ConstFactor((long long)(char(std::get<0>(value))), resultDecl);
+            return new ConstFactor(static_cast<long long>(char(std::get<0>(value))), resultDecl);
         } else {
             assert(false && "Incorect argument for constant CHR function");  
         }
