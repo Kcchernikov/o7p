@@ -38,6 +38,7 @@ public:
 // Содержит все данные, описывающие артефакты языка программирования
 class Module: public CommonData {
     friend class Creator;
+    friend class GeneratorC;
 public:
     Module();
 

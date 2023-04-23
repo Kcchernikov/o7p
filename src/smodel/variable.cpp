@@ -10,3 +10,7 @@ void VarContext::debugOut(size_t tabcnt) {
     context->debugOut(tabcnt);
 }
 
+void VarContext::generate(class Generator* generator, std::stringstream& cur, const std::string& name) {
+    context->generate(generator, cur, name);
+}
+

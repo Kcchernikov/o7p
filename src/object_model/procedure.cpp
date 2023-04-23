@@ -1,5 +1,7 @@
 #include "procedure.h"
 #include "declaration.h"
+#include "../generator/generator.h"
+#include <string>
 
 // void FormalParameters::addFPSection(FPSection* fps) {
 //     parameters.push_back(fps);
@@ -52,4 +54,9 @@ void Procedure::debugOut(size_t tabcnt) {
         body.result->debugOut(0);
     }
     // ProcContext::getDeclaration()
+}
+
+void Procedure::generate(class Generator* generator, std::stringstream& cur, const std::string& name) {
+    generator->GenerateProcedureHeading(*this, cur, name);
+    generator->GenerateProcedureBody(*this, cur, name);
 }

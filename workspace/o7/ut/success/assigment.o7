@@ -39,11 +39,16 @@ TYPE
     recNum : INTEGER
   END;
 
+  NodePtr = POINTER TO Node;
+  Node = RECORD 
+    rec    : POINTER TO AnyRec;
+    next   : NodePtr
+  END;
 
-  Node = POINTER TO RECORD 
+  (*Node = POINTER TO RECORD 
     rec    : POINTER TO AnyRec;
     next   : Node
-  END;
+  END;*)
 
   Product = POINTER TO RECORD (AnyRec)     
     name             : ARRAY 100 OF CHAR;
@@ -65,8 +70,14 @@ VAR
   any: AnyRecPtr;
   pinMap: ARRAY nodes OF ARRAY nodes OF INTEGER;
   products : ARRAY productsCount OF Product;
+  chPtr: POINTER TO ParticleChild;
+  ch: ParticleChild;
+  paPtr: POINTER TO Particle;
 
 BEGIN
   any := products[0];
   any := NIL;
+  ch.n := 179;
+  paPtr := chPtr;
+  (* paPtr(POINTER TO ParticleChild).n = 180; *)
 END Init.

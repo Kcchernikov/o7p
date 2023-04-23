@@ -17,6 +17,12 @@ public:
 
     // Вывод отладочной информации о контексте импорта
     virtual void debugOut(size_t tabcnt = 0);
+
+    virtual void generate(class Generator* generator, std::stringstream& cur, const std::string& name) {
+        // Не должна быть вызвана
+        assert(false && "Undefied call 'generate' in ImportContext");
+    }
+
 private:
     std::string importedName;   // имя импортируемого модуля
     std::string alias;          // имя псевдонима модуля

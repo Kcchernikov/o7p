@@ -1,4 +1,5 @@
 #include "type.h"
+#include "../generator/generator.h"
 
 // Вывод отладочной информации об общем контексте типа
 void TypeContext::debugOut(size_t tabcnt) {
@@ -6,10 +7,15 @@ void TypeContext::debugOut(size_t tabcnt) {
     ///debugInfoAboutName();
 }
 
+
 // Вывод отладочной информации о булевском типе
 void TypeBoolContext::debugOut(size_t tabcnt) {
     TypeContext::debugOut(tabcnt);
     std::cout << "BOOLEAN, size = " << typeSize; // << std::endl;
+}
+
+void TypeBoolContext::generate(Generator* generator, std::stringstream& cur, const std::string& name) {
+    generator->GenerateTypeBool(*this, cur, name);
 }
 
 // Вывод отладочной информации о целочисленном типе
@@ -18,10 +24,18 @@ void TypeIntegerContext::debugOut(size_t tabcnt) {
     std::cout << "INTEGER, size = " << typeSize; // << std::endl;
 }
 
+void TypeIntegerContext::generate(Generator* generator, std::stringstream& cur, const std::string& name) {
+    generator->GenerateTypeInteger(*this, cur, name);
+}
+
 // Вывод отладочной информации о действительном типе
 void TypeRealContext::debugOut(size_t tabcnt) {
     TypeContext::debugOut(tabcnt);
     std::cout << "REAL, size = " << typeSize; // << std::endl;
+}
+
+void TypeRealContext::generate(Generator* generator, std::stringstream& cur, const std::string& name) {
+    generator->GenerateTypeReal(*this, cur, name);
 }
 
 // Вывод отладочной информации о символьном типе
@@ -30,10 +44,18 @@ void TypeCharContext::debugOut(size_t tabcnt) {
     std::cout << "CHAR, size = " << typeSize; // << std::endl;
 }
 
+void TypeCharContext::generate(Generator* generator, std::stringstream& cur, const std::string& name) {
+    generator->GenerateTypeChar(*this, cur, name);
+}
+
 // Вывод отладочной информации о байтовом типе
 void TypeByteContext::debugOut(size_t tabcnt) {
     TypeContext::debugOut(tabcnt);
     std::cout << "BYTE, size = " << typeSize; // << std::endl;
+}
+
+void TypeByteContext::generate(Generator* generator, std::stringstream& cur, const std::string& name) {
+    generator->GenerateTypeByte(*this, cur, name);
 }
 
 // Вывод отладочной информации о строковом типе
@@ -42,16 +64,28 @@ void TypeStringContext::debugOut(size_t tabcnt) {
     std::cout << "STRING, size = " << typeSize; // << std::endl;
 }
 
+void TypeStringContext::generate(Generator* generator, std::stringstream& cur, const std::string& name) {
+    generator->GenerateTypeString(*this, cur, name);
+}
+
 // Вывод отладочной информации о Nil
 void TypeNilContext::debugOut(size_t tabcnt) {
     TypeContext::debugOut(tabcnt);
     std::cout << "NIL, size = " << typeSize; // << std::endl;
 }
 
+void TypeNilContext::generate(Generator* generator, std::stringstream& cur, const std::string& name) {
+    generator->GenerateTypeNil(*this, cur, name);
+}
+
 // Вывод отладочной информации о множественном типе
 void TypeSetContext::debugOut(size_t tabcnt) {
     TypeContext::debugOut(tabcnt);
     std::cout << "SET, size = " << typeSize; // << std::endl;
+}
+
+void TypeSetContext::generate(Generator* generator, std::stringstream& cur, const std::string& name) {
+    generator->GenerateTypeSet(*this, cur, name);
 }
 
 // Добавление к записи, объявленной в модуле именованного поля
@@ -89,6 +123,10 @@ void TypeRecordContext::debugOut(size_t tabcnt) {
     std::cout << "}";
 }
 
+void TypeRecordContext::generate(Generator* generator, std::stringstream& cur, const std::string& name) {
+    generator->GenerateTypeRecord(*this, cur, name);
+}
+
 // Вывод отладочной информации о типе - указателе
 void TypePointerContext::debugOut(size_t tabcnt) {
     for (size_t i = 0; i < tabcnt; ++i) {
@@ -98,6 +136,10 @@ void TypePointerContext::debugOut(size_t tabcnt) {
     std::cout << "POINTER TO (size = " << typeSize << ") {";
     // recordType->debugOut(tabcnt);
     std::cout << "}"; // << std::endl;
+}
+
+void TypePointerContext::generate(Generator* generator, std::stringstream& cur, const std::string& name) {
+    generator->GenerateTypePointer(*this, cur, name);
 }
 
 // Вывод отладочной информации о типе - массиве
@@ -113,5 +155,9 @@ void TypeArrayContext::debugOut(size_t tabcnt) {
         std::cout << "\e[1;31m ERROR: VALUE TYPE IS EMPTY \e[1m \n";
     }
     // std::cout << "}"; // << std::endl;
+}
+
+void TypeArrayContext::generate(Generator* generator, std::stringstream& cur, const std::string& name) {
+    generator->GenerateTypeArray(*this, cur, name);
 }
 

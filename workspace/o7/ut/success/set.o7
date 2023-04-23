@@ -4,11 +4,14 @@ CONST maxVal = 20; constSet = {1, 2, 7, 9..15, 19..maxVal};
 
 VAR 
   i, j, v, result: INTEGER;
+  inSet: BOOLEAN;
   varSet: SET;
 
 BEGIN
  varSet := constSet;
  varSet := {5..7} / varSet + varSet * {10..maxVal};
  varSet := varSet + {5} + {12} + {17};
+ varSet := varSet - {1} + {1} - {1};
+ inSet := 1 IN varSet;
 
 END Init.

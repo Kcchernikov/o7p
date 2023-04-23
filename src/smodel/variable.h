@@ -5,6 +5,7 @@
 
 // Класс, задающий контекст для всех переменых
 class VarContext: public Context {
+    friend class GeneratorC;
 public:
     // Конструктор для создания переменной заданного типа
     VarContext(TypeContext* type = nullptr);
@@ -18,6 +19,10 @@ public:
 
     // Вывод отладочной информации о базовом типе
     virtual void debugOut(size_t tabcnt = 0);
+    virtual void generate(class Generator* generator, std::stringstream& cur, const std::string& name);
+    virtual std::string getTypeName() const {
+        return "VarContext";
+    }
 private:
     TypeContext* context;   // Тип переменной
 };

@@ -1,4 +1,5 @@
 #include "designator.h"
+#include "../generator/generator.h"
 
 #include <iostream>
 
@@ -35,13 +36,20 @@ void RecordSelector::debugOut(size_t tabcnt) {
     std::cout << "RECORD SELECTOR ." << ident;
 }
 
-IndexSelector::IndexSelector(const std::vector<Expression*>& exps, TypeContext* prev) {
+void RecordSelector::generate(Generator* generator, std::stringstream& cur) {
+    generator->GenerateRecordSelector(*this, cur);
+}
+
+IndexSelector::IndexSelector(const std::vector<Expression*>& exps, TypeContext* prev): expList(exps) {
     if (!prev || exps.empty()) {
         assert(false && "Incorrect Selector");
     }
     type = prev;
     for (auto exp : exps) {
-        TypeArrayContext* cur = dynamic_cast<TypeArrayContext*>(type);
+        TypeArrayContext* cur = (type->getTypeName() == "TypeArrayContext"
+            ? dynamic_cast<TypeArrayContext*>(type)
+            : nullptr
+        );
         if (!cur) {
             assert(false && "It is unable to get index not from array");
         }
@@ -56,13 +64,22 @@ void IndexSelector::debugOut(size_t tabcnt) {
     }
 }
 
-AssertSelector::AssertSelector(const Qualident& qual, TypeContext* prev): idents(qual.idents) {
+void IndexSelector::generate(Generator* generator, std::stringstream& cur) {
+    generator->GenerateIndexSelector(*this, cur);
+}
+
+AssertSelector::AssertSelector(const Qualident& qual, TypeContext* prev): qualident(qual), prevType(prev) {
     TypeContext* newType = qual.type;
     if (newType != prev) {
-        TypeRecordContext* rec = dynamic_cast<TypeRecordContext*>(prev);
+        TypeRecordContext* rec = (prev->getTypeName() == "TypeRecordContext"
+            ? dynamic_cast<TypeRecordContext*>(prev)
+            : nullptr
+        );
         if (!rec->isOneOfParents(newType)) {
             assert(false && "Types in assert are not relative");
         }
+    } else {
+        isAlwaysTrue = true;
     }
     type = newType;
 }
@@ -73,16 +90,27 @@ void AssertSelector::debugOut(size_t tabcnt) {
     std::cout << ")";
 }
 
-PoinerSelector::PoinerSelector(TypeContext* prev) {
-    TypePointerContext* p = dynamic_cast<TypePointerContext*>(prev);
+void AssertSelector::generate(Generator* generator, std::stringstream& cur) {
+    generator->GenerateAssertSelector(*this, cur);
+}
+
+PointerSelector::PointerSelector(TypeContext* prev) {
+    TypePointerContext* p = (prev->getTypeName() == "TypePointerContext"
+        ? dynamic_cast<TypePointerContext*>(prev)
+        : nullptr
+    );
     if (!p) {
         assert(false && "^ is avaliable only for pointers");
     }
     type = p->getRecord();
 }
 
-void PoinerSelector::debugOut(size_t tabcnt) {
+void PointerSelector::debugOut(size_t tabcnt) {
     std::cout << "POINTER SELECTOR ^";
+}
+
+void PointerSelector::generate(Generator* generator, std::stringstream& cur) {
+    generator->GeneratePointerSelector(*this, cur);
 }
 
 std::vector<Expression*> IndexSelector::getExpressionList() {
@@ -102,11 +130,17 @@ void Designator::addRecordSelector(std::string ident) {
     if (!type) {
         assert(false && "Empty Designator's type");
     }
-    TypeRecordContext* rec = dynamic_cast<TypeRecordContext*>(type);
+    TypeRecordContext* rec = (type->getTypeName() == "TypeRecordContext"
+        ? dynamic_cast<TypeRecordContext*>(type)
+        : nullptr
+    );
     if (rec) {
         selectors.push_back(new RecordSelector(ident, rec));
     } else {
-        TypePointerContext* p = dynamic_cast<TypePointerContext*>(type);
+        TypePointerContext* p = (type->getTypeName() == "TypePointerContext"
+            ? dynamic_cast<TypePointerContext*>(type)
+            : nullptr
+        );
         if (p) {
             selectors.push_back(new RecordSelector(ident, p->getRecord()));
         } else {
@@ -136,7 +170,7 @@ void Designator::addPointerSelector() {
     if (!isVar) {
         assert(false && "Selectors are avaliable only for variables");
     }
-    selectors.push_back(new PoinerSelector(type));
+    selectors.push_back(new PointerSelector(type));
     type = selectors.back()->getType();
 }
 

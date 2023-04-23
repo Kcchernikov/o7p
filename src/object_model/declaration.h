@@ -4,13 +4,17 @@
 #include <cassert>
 #include <iostream>
 #include <string>
+#include <sstream>
 #include <vector>
 #include <variant>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "operator.h"
 #include "../smodel/context.h"
 #include "../smodel/type_context.h"
+
+class Generator;
 
 struct Identdef {
     std::string name;
@@ -79,6 +83,8 @@ public:
     // Вывод отладочной информации
     void debugOut(size_t tabcnt = 0) override;
 
+    void generate(class Generator* generator, std::stringstream& cur, const std::string& name) override;
+
     // Применение унарного оператора
     void applyUnaryOperator(UnaryOperator op);
 
@@ -113,6 +119,7 @@ private:
 };
 
 class ConstDeclaration {
+    friend class GeneratorC;
 public:
     ConstDeclaration(const std::string& name, ConstFactor* value, bool access)
         : name(name)
@@ -130,6 +137,8 @@ public:
     std::string getName() const {return name;}
     ConstFactor* getFactor() const {return value;}
     bool getAccess() const {return access;}
+    void generate(class Generator* gen, std::stringstream& hcode, std::stringstream& ccode);
+    void generate(class Generator* gen, std::stringstream& cur);
 
 private:
     std::string name;
@@ -139,6 +148,7 @@ private:
 };
 
 class DeclarationSequence {
+    friend class GeneratorC;
 public:
     DeclarationSequence(
         DeclarationSequence* prev = nullptr,
@@ -179,8 +189,6 @@ public:
 
     void addNamedArtefact(NamedArtefact* art) {
         if (!art) {
-            //TODO delete return
-            return;
             assert(false && "Empty artefact");
         }
         if (reservedNamedArtefacts && reservedNamedArtefacts->count(art->getName())) {
@@ -190,6 +198,7 @@ public:
             assert(false && "Var with this name already exists");
         }
         namedArtefacts[art->getName()] = art;
+        order.push_back(art);
     }
 
     void addConstNamedArtefact(ConstDeclaration* cd) {
@@ -203,6 +212,10 @@ public:
             assert(false && "Const var with this name already exists");
         }
         constNamedArtefacts[cd->getName()] = cd;
+    }
+
+    void addHideArtefact(const std::string& s) {
+        hideAertefacts.insert(s);
     }
 
     // Ищет константную переменную по имени в импорте
@@ -235,9 +248,11 @@ public:
 
 private:
     std::unordered_map<std::string, NamedArtefact*> namedArtefacts;
+    std::unordered_set<std::string> hideAertefacts;
     std::unordered_map<std::string, ConstDeclaration*> constNamedArtefacts;
     std::unordered_map<std::string, NamedArtefact*>* reservedNamedArtefacts;
     std::unordered_map<std::string, DeclarationSequence*>* importArtefacts;
+    std::vector<NamedArtefact*> order;
     DeclarationSequence* prevDeclaration;
     uint32_t notInitCnt;
 };

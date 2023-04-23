@@ -9,13 +9,13 @@ VAR
   value: ARRAY len OF INTEGER;
   isInteger: BOOLEAN;
 
-PROCEDURE log2(x: INTEGER): INTEGER;
+PROCEDURE Log2(x: INTEGER): INTEGER;
  VAR y: INTEGER; (*assume x>0*)
 BEGIN 
   y := 0;
  WHILE x > 1 DO x := x DIV 2; y := y + 1 END;
  RETURN y
-END log2;
+END Log2;
 
 BEGIN
  FOR i:=1 TO 9 DO
@@ -49,7 +49,7 @@ BEGIN
  | 3: result := 8
  END;
 
- result := log2(result);
+ result := Log2(result);
  isInteger := result IS INTEGER;
 
 END Init.

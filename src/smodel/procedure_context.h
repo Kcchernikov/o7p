@@ -7,9 +7,12 @@
 #include "variable.h"
 #include "../object_model/declaration.h"
 
+#include <string>
 #include <vector>
+#include <unordered_set>
 
 class FPSection {
+    friend class GeneratorC;
 public:
     FPSection(): isVar(false), type(nullptr) {
     }
@@ -27,6 +30,7 @@ private:
 };
 
 class FormalParameters {
+    friend class GeneratorC;
 public:
     void addFPSection(FPSection* fps);
     void setResultType(TypeContext* ctx);
@@ -41,6 +45,7 @@ private:
 
 // Класс, задающий контекст для процедуры
 class ProcContext: public TypeContext, CommonData {
+    friend class GeneratorC;
 public:
     // Конструктор для создания переменной заданного типа
     ProcContext(Module& m);
@@ -59,7 +64,7 @@ public:
         return nullptr;
     }
     // Получение формальных параметров
-    FormalParameters* getFormalParameters() { return heading; }
+    FormalParameters* getFormalParameters() const { return heading; }
     // Установка типа переменной
     void setResultType(TypeContext* type) { heading->setResultType(type); }
     // Установка формальных параметров
@@ -69,10 +74,15 @@ public:
 
     // Вывод отладочной информации о базовом типе
     virtual void debugOut(size_t tabcnt = 0);
+    virtual void generate(class Generator* generator, std::stringstream& cur, const std::string& name);
+
+    virtual std::string getTypeName() const {
+        return "TypeArrayContext";
+    }
 protected:
     DeclarationSequence* declaration;
-    // DeclarationSequence* value;
     FormalParameters* heading = nullptr;
+    std::unordered_set<NamedArtefact*> refs;
     // TypeContext* resultType;   // Тип результата
 };
 

@@ -4,6 +4,7 @@
 #include "context.h"
 
 #include <string>
+#include <sstream>
 
 // Класс, задающий обобщение для всех типов языка
 class TypeContext: public Context {
@@ -20,6 +21,11 @@ public:
     }
     // Вывод отладочной информации о базовом типе
     virtual void debugOut(size_t tabcnt = 0);
+
+    virtual std::string getTypeName() const {
+        return "TypeContext";
+    }
+
 protected:
     // Размер типа
     int typeSize;

@@ -31,7 +31,9 @@ TYPE
  	END;
 
   ParticleChild = RECORD (Particle)
-  n: INTEGER
+    n: INTEGER;
+    insightRec: tPaint;
+    arr: ARRAY 10 OF INTEGER
   END;
 
   AnyRecPtr = POINTER TO AnyRec;
@@ -39,13 +41,23 @@ TYPE
     recNum : INTEGER
   END;
 
-
-  Node = POINTER TO RECORD 
+  NodePtr = POINTER TO Node;
+  Node = RECORD 
     rec    : POINTER TO AnyRec;
-    next   : Node
+    next   : NodePtr
   END;
 
-  Product = POINTER TO RECORD (AnyRec)     
+  (*Node = POINTER TO RECORD 
+    rec    : POINTER TO AnyRec;
+    next   : Node
+  END;*)
+
+   (*Node = RECORD 
+    rec    : POINTER TO AnyRec;
+    next   : POINTER TO Node
+  END;*)
+
+  Product = RECORD (AnyRec)     
     name             : ARRAY 100 OF CHAR;
     workTime         : REAL; (* время обработки единицы изделия *)
     changeoverTime   : REAL; (* время перенастройки на это изделие *)
@@ -62,10 +74,11 @@ VAR
   i, v: INTEGER;
   c: CHAR;
   a, b: SET;
-  pinMap: ARRAY nodes OF ARRAY nodes OF INTEGER;
+  pinMap: ARRAY nodes OF ARRAY nodes OF ARRAY nodes OF INTEGER;
   products : ARRAY productsCount OF Product;
+  child: ParticleChild;
 
-PROCEDURE AddProductsToStock;
+PROCEDURE AddProductsToStock(VAR child2: ParticleChild);
 VAR i : INTEGER;
 BEGIN 
   FOR i := 0 TO (*LEN(products) -1*)2 DO    

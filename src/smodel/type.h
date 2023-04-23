@@ -21,6 +21,12 @@ public:
 
     // Вывод отладочной информации о типе
     virtual void debugOut(size_t tabcnt = 0);
+    // генерация кода
+    virtual void generate(Generator* gen, std::stringstream& cur, const std::string& name);
+
+    virtual std::string getTypeName() const {
+        return "TypeBoolContext";
+    }
 };
 
 // Класс, определяющий целочисленный тип
@@ -37,6 +43,11 @@ public:
 
     // Вывод отладочной информации о типе
     virtual void debugOut(size_t tabcnt = 0);
+    // генерация кода
+    virtual void generate(Generator* gen, std::stringstream& cur, const std::string& name);
+    virtual std::string getTypeName() const {
+        return "TypeIntegerContext";
+    }
 };
 
 // Класс, определяющий действительный тип
@@ -53,6 +64,11 @@ public:
 
     // Вывод отладочной информации о типе
     virtual void debugOut(size_t tabcnt = 0);
+    // генерация кода
+    virtual void generate(Generator* gen, std::stringstream& cur, const std::string& name);
+    virtual std::string getTypeName() const {
+        return "TypeRealContext";
+    }
 };
 
 // Класс, определяющий символьный тип
@@ -69,6 +85,11 @@ public:
 
     // Вывод отладочной информации о типе
     virtual void debugOut(size_t tabcnt = 0);
+    // генерация кода
+    virtual void generate(Generator* gen, std::stringstream& cur, const std::string& name);
+    virtual std::string getTypeName() const {
+        return "TypeCharContext";
+    }
 };
 
 // Класс, определяющий байтовый тип
@@ -85,6 +106,11 @@ public:
 
     // Вывод отладочной информации о типе
     virtual void debugOut(size_t tabcnt = 0);
+    // генерация кода
+    virtual void generate(Generator* gen, std::stringstream& cur, const std::string& name);
+    virtual std::string getTypeName() const {
+        return "TypeByteContext";
+    }
 };
 
 // Класс, определяющий строковый тип
@@ -102,6 +128,11 @@ public:
 
     // Вывод отладочной информации о типе
     virtual void debugOut(size_t tabcnt = 0);
+    // генерация кода
+    virtual void generate(Generator* gen, std::stringstream& cur, const std::string& name);
+    virtual std::string getTypeName() const {
+        return "TypeStringContext";
+    }
 private:
     size_t length; // значение 0 указывает о произвольной длине
 };
@@ -120,6 +151,11 @@ public:
 
     // Вывод отладочной информации о типе
     virtual void debugOut(size_t tabcnt = 0);
+    // генерация кода
+    virtual void generate(Generator* gen, std::stringstream& cur, const std::string& name);
+    virtual std::string getTypeName() const {
+        return "TypeNilContext";
+    }
 };
 
 // Класс, определяющий множественный тип
@@ -136,10 +172,16 @@ public:
 
     // Вывод отладочной информации о типе
     virtual void debugOut(size_t tabcnt = 0);
+    // генерация кода
+    virtual void generate(Generator* generator, std::stringstream& cur, const std::string& name);
+    virtual std::string getTypeName() const {
+        return "TypeSetContext";
+    }
 };
 
 // Класс, определяющий тип "запись"
 class TypeRecordContext: public TypeContext {
+    friend class GeneratorC;
 public:
     // Создание оболочки типа и задание его контекста
     TypeRecordContext(TypeRecordContext* p = nullptr, bool init = true): parentContext(p), isInit(init) {
@@ -154,6 +196,8 @@ public:
     virtual TypeContext* getType() {
         return this;
     }
+
+    virtual void generate(Generator* gen, std::stringstream& cur, const std::string& name);
 
     // Добавление к записи именованного поля
     void AddNamedModuleField(std::string name, TypeContext* typeContext, bool access = true);
@@ -183,7 +227,10 @@ public:
     }
 
     bool isOneOfParents(TypeContext* ctx) {
-        TypeRecordContext* rec = dynamic_cast<TypeRecordContext*>(ctx);
+        TypeRecordContext* rec = (ctx->getTypeName() == "TypeRecordContext"
+            ? dynamic_cast<TypeRecordContext*>(ctx)
+            : nullptr
+        );
         if (!rec) {
             return false;
         }
@@ -200,6 +247,9 @@ public:
 
     // Вывод отладочной информации о записи
     virtual void debugOut(size_t tabcnt = 0);
+    virtual std::string getTypeName() const {
+        return "TypeRecordContext";
+    }
 private:
     // Родительский контекст (если присутствует, иначе nullptr)
     TypeRecordContext* parentContext;
@@ -212,6 +262,7 @@ private:
 
 // Класс, определяющий тип - указатель
 class TypePointerContext: public TypeContext {
+    friend class GeneratorC;
 public:
     // Создание типа и определение его размера
     TypePointerContext(TypeRecordContext* r = nullptr): recordType(r) {
@@ -231,7 +282,10 @@ public:
     }
 
     bool isOneOfParents(TypeContext* ctx) {
-        TypePointerContext* p = dynamic_cast<TypePointerContext*>(ctx);
+        TypePointerContext* p = (ctx->getTypeName() == "TypePointerContext"
+            ? dynamic_cast<TypePointerContext*>(ctx)
+            : nullptr
+        );
         if (!p) {
             return false;
         }
@@ -240,12 +294,17 @@ public:
 
     // Вывод отладочной информации о типе
     virtual void debugOut(size_t tabcnt = 0);
+    virtual void generate(Generator* gen, std::stringstream& cur, const std::string& name);
+    virtual std::string getTypeName() const {
+        return "TypePointerContext";
+    }
 private:
     TypeRecordContext* recordType;    // указатель ссылается только на запись
 };
 
 // Класс, определяющий тип - массив
 class TypeArrayContext: public TypeContext {
+    friend class GeneratorC;
 public:
     // Создание типа и определение его размера
     TypeArrayContext(size_t len, TypeContext* v): length(len), valueType(v) {
@@ -273,8 +332,14 @@ public:
             if (valueType == arr->getElementType()) {
                 return true;
             }
-            TypeArrayContext* value1 = dynamic_cast<TypeArrayContext*>(valueType);
-            TypeArrayContext* value2 = dynamic_cast<TypeArrayContext*>(arr->getElementType());
+            TypeArrayContext* value1 = (valueType->getTypeName() == "TypeArrayContext"
+                ? dynamic_cast<TypeArrayContext*>(valueType)
+                : nullptr
+            );
+            TypeArrayContext* value2 = (arr->getElementType()->getTypeName() == "TypeArrayContext"
+                ? dynamic_cast<TypeArrayContext*>(arr->getElementType())
+                : nullptr
+            );
             if (value1 && value2) {
                 return value1->isEqual(value2);
             }
@@ -284,6 +349,10 @@ public:
 
     // Вывод отладочной информации о типе
     virtual void debugOut(size_t tabcnt = 0);
+    virtual void generate(Generator* gen, std::stringstream& cur, const std::string& name);
+    virtual std::string getTypeName() const {
+        return "TypeArrayContext";
+    }
 private:
     size_t length; // значение 0 указывает о произвольной длине
     TypeContext* valueType;    // указатель ссылается только на запись

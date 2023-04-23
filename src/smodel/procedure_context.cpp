@@ -1,7 +1,8 @@
 #include "procedure_context.h"
-
 #include "context.h"
 #include "type_context.h"
+#include "../generator/generator.h"
+
 #include "variable.h"
 #include <cstddef>
 #include <string>
@@ -87,6 +88,10 @@ void ProcContext::setFormalParameters(FormalParameters* fp) {
         for (auto& name : section->getParameters()) {
             NamedArtefact* art = new NamedArtefact(name, new VarContext(section->getType()), false);
             declaration->addNamedArtefact(art);
+            declaration->addHideArtefact(name);
+            if (section->getIsVar()) {
+                refs.insert(art);
+            }
         }
     }
 }
@@ -108,5 +113,9 @@ void ProcContext::debugOut(size_t tabcnt) {
             getResultType()->debugOut(tabcnt);
         }
     }
+}
+
+void ProcContext::generate(Generator* generator, std::stringstream& cur, const std::string& name) {
+    generator->GenerateProcedureContext(*this, cur, name);
 }
 

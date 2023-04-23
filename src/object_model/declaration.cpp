@@ -1,4 +1,5 @@
 #include "declaration.h"
+#include "../generator/generator.h"
 
 #include <cmath>
 
@@ -468,6 +469,18 @@ ConstFactor* ConstFactor::execute(std::vector<ConstFactor*> args, DeclarationSeq
     } else {
         assert(false && bool("There is no constant procedure with more than 2 arguments"));
     }
+}
+
+void ConstFactor::generate(class Generator* generator, std::stringstream& cur, const std::string& name) {
+    generator->GenerateConstFactor(*this, cur, name);
+}
+
+void ConstDeclaration::generate(Generator* gen, std::stringstream& hcode, std::stringstream& ccode) {
+    gen->GenerateConstDeclaration(*this, hcode, ccode);
+}
+
+void ConstDeclaration::generate(Generator* gen, std::stringstream& cur) {
+    gen->GenerateConstDeclaration(*this, cur);
 }
 
 // Ищет константную переменную по имени в импорте

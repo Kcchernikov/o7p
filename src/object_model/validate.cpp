@@ -8,25 +8,43 @@ bool IsComparable(TypeContext* formalType, TypeContext* actualType) {
     } else {
         // Check record type the same
         // актуальный параметр должен быть потомком формального
-        TypeRecordContext* actualRec = dynamic_cast<TypeRecordContext*>(actualType);
-        TypeRecordContext* formalRec = dynamic_cast<TypeRecordContext*>(formalType);
+        TypeRecordContext* actualRec = (actualType->getTypeName() == "TypeRecordContext"
+            ? dynamic_cast<TypeRecordContext*>(actualType)
+            : nullptr
+        );
+        TypeRecordContext* formalRec = (formalType->getTypeName() == "TypeRecordContext"
+            ? dynamic_cast<TypeRecordContext*>(formalType)
+            : nullptr
+        );
         if (actualRec && formalRec) {
             if (actualRec->isOneOfParents(formalRec)) {
                 return true;
             }
         } else {
             // Check pointer type the same
-            TypePointerContext* actualP = dynamic_cast<TypePointerContext*>(actualType);
-            TypePointerContext* formalP = dynamic_cast<TypePointerContext*>(formalType);
-            if (formalP && dynamic_cast<TypeNilContext*>(actualType)) {
+            TypePointerContext* actualP = (actualType->getTypeName() == "TypePointerContext"
+                ? dynamic_cast<TypePointerContext*>(actualType)
+                : nullptr
+            );
+            TypePointerContext* formalP = (formalType->getTypeName() == "TypePointerContext"
+                ? dynamic_cast<TypePointerContext*>(formalType)
+                : nullptr
+            );
+            if (formalP && actualType->getTypeName() == "TypeNilContext") {
                 return true;
             }
             if (actualP && formalP && actualP->isOneOfParents(formalP)) {
                 return true;
             } else {
                 // Check array type the same
-                TypeArrayContext* actualArr = dynamic_cast<TypeArrayContext*>(actualType);
-                TypeArrayContext* formalArr = dynamic_cast<TypeArrayContext*>(formalType);
+                TypeArrayContext* actualArr = (actualType->getTypeName() == "TypeArrayContext"
+                    ? dynamic_cast<TypeArrayContext*>(actualType)
+                    : nullptr
+                );
+                TypeArrayContext* formalArr = (formalType->getTypeName() == "TypeArrayContext"
+                    ? dynamic_cast<TypeArrayContext*>(formalType)
+                    : nullptr
+                );
                 if (actualArr && formalArr && actualArr->isEqual(formalArr)) {
                     return true;
                 }
@@ -40,7 +58,10 @@ TypeContext* ValidateParameters(Designator* des, const std::vector<Expression*>&
     if (!des) {
         assert(false && "Designator is null");
     }
-    ProcContext* proc = dynamic_cast<ProcContext*>(des->getType());
+    ProcContext* proc = (des->getType()->getTypeName() == "ProcContext" || des->getType()->getTypeName() == "Procedure"
+        ? dynamic_cast<ProcContext*>(des->getType())
+        : nullptr
+    );
     if (!proc) {
         assert(false && "Only procedure is callable");
     }
@@ -53,7 +74,7 @@ TypeContext* ValidateParameters(Designator* des, const std::vector<Expression*>&
                 assert(false && "Formal parameters and actual parameters must be the same length");
             }
             // Запрет передавать в функцию не переменную там, где параметр VAR
-            if (sec->getIsVar() && !actualParams[i++]->getIsVar()) {
+            if (sec->getIsVar() && !actualParams[i]->getIsVar()) {
                 assert(false && "Only variable are avaliable for VAR formal type");
             }
             TypeContext* actualType = actualParams[i++]->getResultType();

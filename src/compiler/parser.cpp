@@ -1,5 +1,6 @@
 //#include "error.h"
 #include "parser.h"
+#include "../generator/generator_c.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -9,6 +10,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <strings.h>
 #include <vector>
 
 // Список ключевых и зарезервированных слов,
@@ -63,6 +65,13 @@ void Compile(const char* str) {
     if(mc.isModule(module) && mc.getErrCnt() == 0) {
         std::cout << "\e[1;32m" << "OK" << "\e[0m" << std::endl;
         module.debugOut();
+        GeneratorC generator;
+        std::stringstream hcode, ccode;
+        generator.GenerateModule(module, hcode, ccode);
+        std::cout << "\e[1;32m ***** code.h *****" << std::endl;
+        std::cout << hcode.str() << std::endl;
+        std::cout << "\n\e[1;33m ***** code.c *****" << std::endl;
+        std::cout << ccode.str() << std::endl;
     } else {
         std::cout << "\e[1;31m" << "FAIL" << "\e[0m" << std::endl;
     }
@@ -800,8 +809,11 @@ _2:
     TypeRecordContext* rec;
     bool isPartDecl = false;
     if (cur) {
-        rec = dynamic_cast<TypeRecordContext*>(cur->getContext());
+        rec = cur->getContext()->getTypeName() == "TypeRecordContext" ? dynamic_cast<TypeRecordContext*>(cur->getContext()) : nullptr;
         isPartDecl = (rec && (rec->getInit() == false));
+        if (rec && rec->getInit()) {
+            return erMessage("Type redeclaration is not avaliable");
+        }
     }
     if (isPartDecl) {
         ds->decNotInit();
@@ -815,17 +827,21 @@ _2:
     }
     if(isType(&ctx)) {
         if (isPartDecl) {
+            NamedArtefact* art = rec->getNamedArtefact();
             (*rec) = (*dynamic_cast<TypeRecordContext*>(ctx));
+            rec->setNamedArtefact(art);
         }
         goto _end;
     }
     return erMessage("Type value expected");
 _end:
-    if (!isPartDecl && oldCtx != ctx) {
-        NamedArtefact* art = ds->getArtefactByName(ident.name);
-        art->setContext(ctx);
-        ctx->setNamedArtefact(art);
-        delete oldCtx;
+    if (!isPartDecl) {
+        if (oldCtx != ctx) {
+            NamedArtefact* art = ds->getArtefactByName(ident.name);
+            art->setContext(ctx);
+            ctx->setNamedArtefact(art);
+            delete oldCtx;
+        }
     }
     return true;
 }
@@ -834,7 +850,6 @@ _end:
 // type = qualident | ArrayType | RecordType | PointerType | ProcedureType.
 bool ModuleCompiler::isType(TypeContext** type, bool createIfNotExists) {
 //_0:
-    Context* ctx = nullptr;
     Qualident qualident;
     if(isArrayType(type)) {
         goto _end;
@@ -849,7 +864,6 @@ bool ModuleCompiler::isType(TypeContext** type, bool createIfNotExists) {
         goto _end;
     }
     if(isQualident(qualident, createIfNotExists)) {
-        // (*type) = dynamic_cast<TypeContext*>(ctx);
         (*type) = qualident.type;
         goto _end;
     }
@@ -861,6 +875,7 @@ _end:
 //-----------------------------------------------------------------------------
 // ArrayType = ARRAY length {"," length} OF type.
 // length = ConstExpression.
+// TODO поддержать синтаксис ARRAY 10, 20 OF REAL
 bool ModuleCompiler::isArrayType(TypeContext** type) {
 //_0:
     if(isKeyWord("ARRAY")) {
@@ -1047,7 +1062,7 @@ _2:
     }
     return erMessage("Type expected");
 _end:
-    TypeRecordContext* rec = dynamic_cast<TypeRecordContext*>(ctx);
+    TypeRecordContext* rec = ctx->getTypeName() == "TypeRecordContext" ? dynamic_cast<TypeRecordContext*>(ctx) : nullptr;
     if (!ctx || !rec) {
         return erMessage("Type to point is null");
     } else {
@@ -1137,7 +1152,6 @@ _3:
     ///return erMessage("':' expected");
 _4:
     if(isQualident(result)) {
-        // TypeContext* tp = dynamic_cast<TypeContext*>(result);
         TypeContext* tp = result.type;
         if (!tp) {
             return erMessage("Procedure result must be a type");
@@ -1955,11 +1969,11 @@ _end:
         return erMessage("Variable " + ident + " is not declarated");
     }
     Context* ctx = arc->getContext();
-    VarContext* var = dynamic_cast<VarContext*>(ctx);
+    VarContext* var = ctx->getTypeName() == "VarContext" ? dynamic_cast<VarContext*>(ctx) : nullptr;
     if (!var) {
         return erMessage("Variable " + ident + " has empty context");
     }
-    if (!dynamic_cast<TypeIntegerContext*>(var->getType())) {
+    if (var->getType()->getTypeName() != "TypeIntegerContext") {
         return erMessage("Variable " + ident + " must be integer");
     }
     if (!by) {
@@ -2241,10 +2255,8 @@ bool ModuleCompiler::isDesignator(Designator** des) {
     Qualident qual;
     if(isQualident(qual)) {
         cur->addQualident(qual);
-        // TODO проверять, что десигнатор обозначает переменную или процеруду, кроме случая exp IS T
-        // if (!qual.isVariable) {
-        //     return erMessage("Designator's qualident must be variable or procedure");
-        // }
+        // Проверка, что десигнатор обозначает переменную или процеруду, кроме случая exp IS T
+        // производиться внутри десигнатора
         goto _1;
     }
     delete cur;
@@ -2623,6 +2635,7 @@ _1:
         goto _2;
     } else {
         NamedArtefact* art = declaration->getArtefactByName(ident1);
+        std::cout << ident1 << " " << (!art) << std::endl;
         if (!art) {
             if (createIfNotExists) {
                 declaration->incNotInit();
@@ -2646,8 +2659,9 @@ _1:
         } else {
             Context* ctx = art->getContext();
             qualident.type = ctx->getType();
-            if (ctx != qualident.type || dynamic_cast<ProcContext*>(ctx)) {
+            if (ctx != qualident.type || ctx->getTypeName() == "ProcContext" || ctx->getTypeName() == "Procedure") {
                 qualident.isVariable = true;
+                qualident.varArtefact = art;
             }
         }
     }
@@ -2665,7 +2679,7 @@ _2:
             }
             Context* ctx = art->getContext();
             qualident.type = ctx->getType();
-            if (ctx != qualident.type || dynamic_cast<ProcContext*>(ctx)) {
+            if (ctx != qualident.type || ctx->getTypeName() == "ProcContext" || ctx->getTypeName() == "Procedure") {
                 qualident.isVariable = true;
             }
             qualident.type->setImportFrom(ident1);
@@ -2675,12 +2689,15 @@ _2:
                 return erMessage("Invalid qualident '" + tmpValue + "'");
             }
             Context* ctx = rec->getContext();
-            if (ctx != ctx->getType() || dynamic_cast<ProcContext*>(ctx)) {
+            if (ctx != ctx->getType() || ctx->getTypeName() == "ProcContext" || ctx->getTypeName() == "Procedure") {
                 qualident.isVariable = true;
             } else {
                 return erMessage("Invalid qualident '" + tmpValue + "'");
             }
-            TypeRecordContext* record = dynamic_cast<TypeRecordContext*>(ctx->getType());
+            TypeRecordContext* record = (ctx->getType()->getTypeName() == "TypeRecordContext" 
+                ? dynamic_cast<TypeRecordContext*>(ctx->getType())
+                : nullptr
+            );
             if (!record) {
                 return erMessage("Invalid qualident '" + tmpValue + "'");
             }

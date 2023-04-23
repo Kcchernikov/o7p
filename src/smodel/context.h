@@ -1,28 +1,37 @@
 #ifndef CONTEXT_H
 #define CONTEXT_H
 
+// #include "type_context.h"
+#include <sstream>
 #include <iostream>
+#include <string>
 
 class NamedArtefact;
 class TypeContext;
 // Класс, определяющий назначение различных типов программных объектов
 class Context {
+    friend class GeneratorC;
 public:
     // Установка общего начального контекста
     Context(NamedArtefact* na = nullptr);
 
-    virtual TypeContext* getType() {
-        return nullptr;
-    }
+    virtual TypeContext* getType();
+    
     // Вывод отладочной информации о назначении артефакта
     virtual void debugOut(size_t tabcnt = 0) = 0;
     // Вывод отладочной иноформации (при необходимости) об имени контекста
     void debugInfoAboutName();
 
+    virtual void generate(class Generator* generator, std::stringstream& cur, const std::string& name) {}
+
     // Получение указателя на объект с именем артефакта
-    NamedArtefact* getNamedArtefact() { return nameOfArtefact; }
+    NamedArtefact* getNamedArtefact() const { return nameOfArtefact; }
     // Установка указателя на именованный артефакт
     void setNamedArtefact(NamedArtefact* na) {nameOfArtefact = na;}
+
+    virtual std::string getTypeName() const {
+        return "Context";
+    }
 private:
     NamedArtefact* nameOfArtefact;
 };

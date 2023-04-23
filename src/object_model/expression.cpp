@@ -13,11 +13,11 @@ Set::Set(TypeContext* type): resultType(type), isVar(false) {
 }
 
 void Set::addElement(Expression* exp1, Expression* exp2) {
-    if (!dynamic_cast<TypeIntegerContext*>(exp1->getResultType())) {
+    if (exp1->getResultType()->getTypeName() != "TypeIntegerContext") {
         assert(false && "Set elements must be integer");
     }
     if (exp2) {
-        if (!dynamic_cast<TypeIntegerContext*>(exp2->getResultType())) {
+        if (exp2->getResultType()->getTypeName() != "TypeIntegerContext") {
             assert(false && "Set elements must be integer");
         }
     }
@@ -66,7 +66,7 @@ Factor::Factor(Expression* exp): value(exp), isVar(exp->getIsVar()) {
 }
 
 Factor::Factor(Factor* factor): value(factor), isVar(false) {
-    if (!dynamic_cast<TypeBoolContext*>(factor->getResultType())) {
+    if (factor->getResultType()->getTypeName() != "TypeBoolContext") {
         assert(false && "Negotiation is enable only for boolean");
     }
     resultType = factor->getResultType();
@@ -124,32 +124,32 @@ void Term::setStartFactor(Factor* factor) {
 }
 
 void CheckBinaryOperator(TypeContext* type, BinaryOperator op) {
-    if (dynamic_cast<TypeNilContext*>(type)) {
+    if (type->getTypeName() == "TypeNilContext") {
         assert(false && "Binary operators ara not avaliable for NIL");
     }
-    if (dynamic_cast<TypeRecordContext*>(type)) {
+    if (type->getTypeName() == "TypeRecordContext") {
         assert(false && "Binary operators ara not avaliable for records");
     }
-    if (dynamic_cast<TypePointerContext*>(type)) {
+    if (type->getTypeName() == "TypePointerContext") {
         assert(false && "Binary operators ara not avaliable for pointers");
     }
-    if (dynamic_cast<TypeArrayContext*>(type)) {
+    if (type->getTypeName() == "TypeArrayContext") {
         assert(false && "Binary operators ara not avaliable for arrays");
     }
     // оставшиеся типы : integer, real, boolean, char, set, string
     if (op == BinaryOperator::MINUS || op == BinaryOperator::PLUS
         || op == BinaryOperator::PRODUCT || op == BinaryOperator::QUOTIENT) { // определен для integer, real, set
-        if (dynamic_cast<TypeBoolContext*>(type) 
-            || dynamic_cast<TypeCharContext*>(type) || dynamic_cast<TypeStringContext*>(type)) {
+        if (type->getTypeName() == "TypeBoolContext" 
+            || type->getTypeName() == "TypeCharContext" || type->getTypeName() == "TypeStringContext") {
             assert(false && "Binary operators 'minus', 'plus', 'product' and 'quotient' is not defined for this type"); 
         }
     } else if (op == BinaryOperator::OR || op == BinaryOperator::LOGICAL_CONJUNCTION) { // определен для boolean
-        if (!dynamic_cast<TypeBoolContext*>(type)) {
+        if (type->getTypeName() != "TypeBoolContext") {
             assert(false && "Binary operators 'or' ans 'logical conjuction' is defined only for bool"); 
         }
     } else if (op == BinaryOperator::INTEGER_QUOTIENT || op == BinaryOperator::MODULUS) { // определен для integer
-         if (!dynamic_cast<TypeIntegerContext*>(type)) {
-            assert(false && "Binary operators 'integer quotient' and 'modulus', is defined only for bool"); 
+         if (type->getTypeName() != "TypeIntegerContext") {
+            assert(false && "Binary operators 'integer quotient' and 'modulus', is defined only for integer"); 
         }
     }
 }
@@ -183,18 +183,18 @@ void CheckUnaryOperator(TypeContext* type, UnaryOperator op) {
     switch (op) {
         // определен для boolean
         case UnaryOperator::NEGATION:
-            if (!dynamic_cast<TypeBoolContext*>(type)) {
+            if (type->getTypeName() != "TypeBoolContext") {
                 assert(false && "Negotiation operator is defined only for bool"); 
             }
             break;
         // определен для integer, real
         case UnaryOperator::UN_MINUS:
-            if (!dynamic_cast<TypeIntegerContext*>(type) || !dynamic_cast<TypeRealContext*>(type)) {
+            if (type->getTypeName() != "TypeIntegerContext" && type->getTypeName() != "TypeRealContext") {
                 assert(false && "Unary minus operator is defined only for integer and real"); 
             }
             break;
         case UnaryOperator::UN_PLUS:
-            if (!dynamic_cast<TypeIntegerContext*>(type) || !dynamic_cast<TypeRealContext*>(type)) {
+            if (type->getTypeName() != "TypeIntegerContext" && type->getTypeName() != "TypeRealContext") {
                 assert(false && "Unary plus operator is defined only for integer and real"); 
             }
             break;
@@ -253,8 +253,14 @@ void Expression::setFirstSimpleExpression(SimpleExpression* exp) {
 void CheckRelation(TypeContext* type1, Relation rel, TypeContext* type2) {
     if (rel == Relation::TYPE_TEST) { // type1 IS type2
         if (type1 == type2) return;
-        TypeRecordContext* rec1 = dynamic_cast<TypeRecordContext*>(type1);
-        TypeRecordContext* rec2 = dynamic_cast<TypeRecordContext*>(type2);
+        TypeRecordContext* rec1 = (type1->getTypeName() == "TypeRecordContext"
+            ? dynamic_cast<TypeRecordContext*>(type1)
+            : nullptr
+        );
+        TypeRecordContext* rec2 = (type2->getTypeName() == "TypeRecordContext"
+            ? dynamic_cast<TypeRecordContext*>(type2)
+            : nullptr
+        );
         if ((rec1 && !rec2) || (!rec1 && rec2)) {
             assert(false && "Incorrect usage of type test"); 
         }
@@ -264,25 +270,38 @@ void CheckRelation(TypeContext* type1, Relation rel, TypeContext* type2) {
             }
             assert(false && "Incorrect usage of type test"); 
         }
-        TypePointerContext* p1 = dynamic_cast<TypePointerContext*>(type1);
-        TypePointerContext* p2 = dynamic_cast<TypePointerContext*>(type2);
+        TypePointerContext* p1 = (type1->getTypeName() == "TypePointerContext"
+            ? dynamic_cast<TypePointerContext*>(type1)
+            : nullptr
+        );
+        TypePointerContext* p2 = (type2->getTypeName() == "TypePointerContext"
+            ? dynamic_cast<TypePointerContext*>(type2)
+            : nullptr
+        );
         if (p1 && p2) {
             if (p1->isOneOfParents(p2)) {
                 return;
             }
         }
-        assert(false && "Incorrect usage of type test"); 
+        assert(false && "Incorrect usage of type test");
     }
     if (rel == Relation::SET_MEMBERSHIP) {
-        if (!dynamic_cast<TypeIntegerContext*>(type1) || !dynamic_cast<TypeSetContext*>(type2)) {
+        if (type1->getTypeName() != "TypeIntegerContext" || type2->getTypeName() != "TypeSetContext") {
             assert(false && "Set membership relation is defined only for integer and set");
         }
+        return;
     }
-    TypeArrayContext* arr1 = dynamic_cast<TypeArrayContext*>(type1);
-    TypeArrayContext* arr2 = dynamic_cast<TypeArrayContext*>(type2);
+    TypeArrayContext* arr1 = (type1->getTypeName() == "TypeArrayContext"
+        ? dynamic_cast<TypeArrayContext*>(type1)
+        : nullptr
+    );
+    TypeArrayContext* arr2 = (type2->getTypeName() == "TypeArrayContext"
+        ? dynamic_cast<TypeArrayContext*>(type2)
+        : nullptr
+    );
     bool isCharArray = false;
     if (arr1 && arr2) {
-        if (dynamic_cast<TypeCharContext*>(arr1->getElementType()) && dynamic_cast<TypeCharContext*>(arr2->getElementType())) {
+        if (arr1->getElementType()->getTypeName() == "TypeCharContext" && arr2->getElementType()->getTypeName() == "TypeCharContext") {
             isCharArray = true;
         } else {
             assert(false && "Relation is not avaliable for not char arrays");
@@ -294,14 +313,14 @@ void CheckRelation(TypeContext* type1, Relation rel, TypeContext* type2) {
     // остались типы: set, string, record, pointer, procedure, integer, array of char, bool, real, char
     if (rel == Relation::EQUAL || rel == Relation::UNEQUAL) {
         // определено для integer, real, char, array of char, boolean, set, string, pointer, procedure
-        if (dynamic_cast<TypeRecordContext*>(type1)) {
+        if (type1->getTypeName() == "TypeRecordContext") {
             assert(false && "Relation 'equal' is not defined for records"); 
         }
     } else if (rel == Relation::LESS || rel == Relation::LESS_OR_EQUAL 
             || rel == Relation::GREATER || rel == Relation::GREATER_OR_EQUAL) {
-        if (dynamic_cast<TypeRecordContext*>(type1) 
-            || dynamic_cast<TypeSetContext*>(type1) || dynamic_cast<TypeBoolContext*>(type1)    
-            || dynamic_cast<TypePointerContext*>(type1) || dynamic_cast<ProcContext*>(type1)) {
+        std::string typeName = type1->getTypeName();
+        if (typeName == "TypeRecordContext" || typeName == "TypeSetContext" || typeName == "TypeBoolContext"    
+            || typeName == "TypePointerContext" || typeName == "ProcContext" || typeName == "Procedure") {
             // определено для integer, real, char, array of char, string
             assert(false && "Relation 'less' is defined only for numbers, char and strings"); 
         }

@@ -15,6 +15,7 @@ class Designator;
 class Expression;
 
 class Set {
+    friend class GeneratorC;
 public:
     Set(TypeContext* type);
     void addElement(Expression* exp1, Expression* exp2);
@@ -38,6 +39,7 @@ struct DesignatorWrapper {
 };
 
 class Factor {
+    friend class GeneratorC;
 public:
     Factor(ConstFactor* factor);
     Factor(Set* st);
@@ -57,6 +59,7 @@ private:
 };
 
 class Term {
+    friend class GeneratorC;
 public:
     void setStartFactor(Factor* factor);
     void addFactor(BinaryOperator op, Factor* factor);
@@ -72,6 +75,7 @@ private:
 };
 
 class SimpleExpression {
+    friend class GeneratorC;
 public:
     void setStartTerm(UnaryOperator op, Term* term);
     void addTerm(BinaryOperator op, Term* term);
@@ -88,6 +92,7 @@ private:
 };
 
 class Expression {
+    friend class GeneratorC;
 public:
     void setFirstSimpleExpression(SimpleExpression* exp);
     void setSecondSimpleExpression(Relation rel, SimpleExpression* exp, TypeContext* result);

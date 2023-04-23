@@ -1,17 +1,21 @@
 MODULE Init;
 
-PROCEDURE Ask (n: INTEGER);
+VAR n: INTEGER;
+
+PROCEDURE Ask* (VAR n: INTEGER);
 CONST len = 256;
 VAR value: ARRAY len OF INTEGER; i : INTEGER;
 BEGIN
  i := 0;
+ value[i] := i;
  WHILE (i < len) & (value[i] # 10) DO
   value[i] := i;
   i := i + 1;
+  n := n + 1;
   (* INC(I) *)
  END
 END Ask;
 
 BEGIN
- Ask(1)
+ Ask(n)
 END Init.

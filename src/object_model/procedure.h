@@ -16,6 +16,7 @@ struct ProcedureBody {
 
 // Класс, процедуры
 class Procedure: public ProcContext {
+    friend class GeneratorC;
 public:
     Procedure(DeclarationSequence* ds, ProcedureBody body): ProcContext(ds), body(body) {}
     Procedure(DeclarationSequence* ds): ProcContext(ds) {}
@@ -34,7 +35,11 @@ public:
     void setBody(ProcedureBody body);
 
 //     // Вывод отладочной информации о базовом типе
-    virtual void debugOut(size_t tabcnt = 0);
+    void debugOut(size_t tabcnt = 0) override;
+    void generate(class Generator* generator, std::stringstream& cur, const std::string& name) override;
+    std::string getTypeName() const override {
+        return "Procedure";
+    }
 private:
     // heading уже неявно храниться в ProcContext
     Identdef ident;

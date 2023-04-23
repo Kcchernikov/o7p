@@ -1,9 +1,15 @@
 #include <iostream>
 
 #include "context.h"
+#include "type_context.h"
+#include "../generator/generator.h"
 
 // Установка общего начального контекста
 Context::Context(NamedArtefact* na): nameOfArtefact(na) {}
+
+TypeContext* Context::getType() {
+    return nullptr;
+}
 
 // Вывод отладочной иноформации (при необходимости) об имени контекста
 void Context::debugInfoAboutName() {

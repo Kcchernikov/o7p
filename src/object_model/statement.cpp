@@ -2,6 +2,7 @@
 #include "declaration.h"
 #include "expression.h"
 #include "validate.h"
+#include "../generator/generator.h"
 
 #include <iostream>
 
@@ -28,6 +29,10 @@ void Assigment::debugOut(size_t tabcnt) {
     expression->debugOut();
 }
 
+void Assigment::generate(Generator* generator, std::stringstream& cur) {
+    generator->GenerateAssigment(*this, cur);
+}
+
 ProcedureCall::ProcedureCall(Designator* des, const std::vector<Expression*>& params): designator(des), params(params) {
     ValidateParameters(des, params);
 }
@@ -45,18 +50,22 @@ void ProcedureCall::debugOut(size_t tabcnt) {
     std::cout << ")";
 }
 
+void ProcedureCall::generate(Generator* generator, std::stringstream& cur) {
+    generator->GenerateProcedureCall(*this, cur);
+}
+
 IfStatement::IfStatement(): els(nullptr) {
 }
 
 void IfStatement::setMainExpression(Expression *exp, StatementSequence *st) {
-    if (!exp || !dynamic_cast<TypeBoolContext*>(exp->getResultType())) {
+    if (!exp || exp->getResultType()->getTypeName() != "TypeBoolContext") {
         assert(false && "Сonditional expressions must be boolean");  
     }
     main = std::pair<Expression*, StatementSequence*>(exp, st);
 }
 
 void IfStatement::addElsifExpression(Expression *exp, StatementSequence *st) {
-    if (!exp || !dynamic_cast<TypeBoolContext*>(exp->getResultType())) {
+    if (!exp || exp->getResultType()->getTypeName() != "TypeBoolContext") {
         assert(false && "Сonditional expressions must be boolean");  
     }
     elsif.push_back(std::pair<Expression*, StatementSequence*>(exp, st));
@@ -87,6 +96,10 @@ void IfStatement::debugOut(size_t tabcnt) {
     }
 }
 
+void IfStatement::generate(Generator* generator, std::stringstream& cur) {
+    generator->GenerateIf(*this, cur);
+}
+
 void CaseStatement::setExpression(Expression *exp) {
     if (!exp) {
         assert(false && "Сonditional expressions must not be null");  
@@ -105,7 +118,7 @@ void CaseStatement::addCase(CaseLabelList* labelList, StatementSequence* st) {
             if (!IsComparable(type, p.second->getType())) {
                 assert(false && "Label list's types must be the same");  
             }
-            if (!dynamic_cast<TypeIntegerContext*>(type) && !!dynamic_cast<TypeByteContext*>(type)) {
+            if (type->getTypeName() != "TypeIntegerContext" && type->getTypeName() != "TypeByteContext") {
                 // TODO понять, допускаются ли здесь строки
                 assert(false && "Label list's types must be integer or byte");  
             }
@@ -121,15 +134,19 @@ void CaseStatement::debugOut(size_t tabcnt) {
     std::cout << "CaseStatement ";
 }
 
+void CaseStatement::generate(Generator* generator, std::stringstream& cur) {
+    generator->GenerateCase(*this, cur);
+}
+
 void WhileStatement::setMainExpression(Expression *exp, StatementSequence *st) {
-    if (!exp || !dynamic_cast<TypeBoolContext*>(exp->getResultType())) {
+    if (!exp || exp->getResultType()->getTypeName() != "TypeBoolContext") {
         assert(false && "Сonditional expressions must be boolean");  
     }
     main = std::pair<Expression*, StatementSequence*>(exp, st);
 }
 
 void WhileStatement::addElsifExpression(Expression *exp, StatementSequence *st) {
-    if (!exp || !dynamic_cast<TypeBoolContext*>(exp->getResultType())) {
+    if (!exp || exp->getResultType()->getTypeName() != "TypeBoolContext") {
         assert(false && "Сonditional expressions must be boolean");  
     }
     elsif.push_back(std::pair<Expression*, StatementSequence*>(exp, st));
@@ -139,14 +156,22 @@ void WhileStatement::debugOut(size_t tabcnt) {
     std::cout << "WhileStatement ";
 }
 
+void WhileStatement::generate(Generator* generator, std::stringstream& cur) {
+    generator->GenerateWhile(*this, cur);
+}
+
 RepeatStatement::RepeatStatement(Expression* exp, StatementSequence* st): expression(exp), stSeq(st) {
-    if (!exp || !dynamic_cast<TypeBoolContext*>(exp->getResultType())) {
+    if (!exp || exp->getResultType()->getTypeName() != "TypeBoolContext") {
         assert(false && "Сonditional expressions must be boolean");  
     }
 }
 
 void RepeatStatement::debugOut(size_t tabcnt) {
     std::cout << "RepeatStatement ";
+}
+
+void RepeatStatement::generate(Generator* generator, std::stringstream& cur) {
+    generator->GenerateRepeat(*this, cur);
 }
 
 ForStatement::ForStatement(
@@ -156,18 +181,22 @@ ForStatement::ForStatement(
     ConstFactor* by,
     StatementSequence* st
 ): ident(id), start(start), stop(stop), by(by), stSeq(st) {
-    if (!dynamic_cast<TypeIntegerContext*>(id->getType())) {
+    if (id->getType()->getTypeName() != "TypeIntegerContext") {
         assert(false && "Variable must be integer");
     }
-    if (!dynamic_cast<TypeIntegerContext*>(start->getResultType()) ||
-        !dynamic_cast<TypeIntegerContext*>(stop->getResultType())  ||
-        !dynamic_cast<TypeIntegerContext*>(by->getResultType())) {
+    if (start->getResultType()->getTypeName() != "TypeIntegerContext" ||
+        stop->getResultType()->getTypeName() != "TypeIntegerContext"  ||
+        by->getResultType()->getTypeName() != "TypeIntegerContext") {
         assert(false && "For expressions must be integer");
     }
 }    
 
 void ForStatement::debugOut(size_t tabcnt) {
     std::cout << "ForStatement ";
+}
+
+void ForStatement::generate(Generator* generator, std::stringstream& cur) {
+    generator->GenerateFor(*this, cur);
 }
 
 void StatementSequence::addStatement(Statement *st) {
