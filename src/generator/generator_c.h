@@ -52,15 +52,19 @@ public:
     void GenerateSet(const Set& st, std::stringstream& cur) override;
     void GenerateDesignatorWrapper(const DesignatorWrapper& st, std::stringstream& cur) override;
 
-    void GenerateInitialisation(const DeclarationSequence& declaration, std::stringstream& cur);
-    void InitArray(const TypeArrayContext& arr, std::stringstream& cur, const std::string& name, std::vector<size_t>& indexes);
-    void InitRecord(const TypeRecordContext& record, std::stringstream& cur, const std::string& name);
 private:
+    void GenerateInitialisation(const DeclarationSequence& declaration, std::stringstream& cur);
+    void GenerateArrayBaseRef(const TypeArrayContext& arr, std::stringstream& cur, const std::string& name, std::vector<size_t>& lenghts);
+    void InitArray(const TypeArrayContext& arr, std::stringstream& cur, const std::string& name, const std::string& base_name, std::vector<size_t>& indexes);
+    void InitRecord(const TypeRecordContext& record, std::stringstream& cur, const std::string& name);
     void GenerateTabs(std::stringstream& cur);
 private:
     const size_t tabsz = 4;
     size_t tabcnt = 0;
     size_t markId = 0;
+    std::unordered_map<std::string, bool> isRecordDeclarated;
+    std::unordered_map<std::string, bool> isParticalDeclaratedPointer;
+    std::unordered_set<std::string> tmpRecords;
 };
 
 #endif // GENERATOR_C_H

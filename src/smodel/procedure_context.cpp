@@ -89,7 +89,11 @@ void ProcContext::setFormalParameters(FormalParameters* fp) {
             NamedArtefact* art = new NamedArtefact(name, new VarContext(section->getType()), false);
             declaration->addNamedArtefact(art);
             declaration->addHideArtefact(name);
-            if (section->getIsVar()) {
+            // 'The result type of a procedure can be neither a record nor an array'
+            // Поскольку массив не может быть результатом выражения или процедуры,
+            // а также для него нет оператора присваивания, то передаваться в функцию
+            // он может только по ссылке
+            if (section->getIsVar() || section->getType()->getTypeName() == "TypeArrayContext") {
                 refs.insert(art);
             }
         }

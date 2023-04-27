@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <optional>
+#include <ostream>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -56,7 +57,11 @@ void GeneratorC::GenerateModuleDeclaration(const DeclarationSequence& declaratio
             p->generate(this, ccode, name);
             ccode << "\n";
         } else {
-            if (ctx->getTypeName() != "VarContext") {
+            VarContext* var = (ctx->getTypeName() == "VarContext" 
+                ? dynamic_cast<VarContext*>(ctx)
+                : nullptr
+            );
+            if (var == nullptr) {
                 cur << "typedef ";
             }
             ctx->generate(this, cur, name);
@@ -64,6 +69,10 @@ void GeneratorC::GenerateModuleDeclaration(const DeclarationSequence& declaratio
                 hcode << cur.str() << ";\n";
             } else {
                 ccode << cur.str() << ";\n";
+            }
+            if (var && var->getType()->getTypeName() == "TypeArrayContext") {
+                std::vector<size_t> lengths;
+                GenerateArrayBaseRef(*dynamic_cast<TypeArrayContext*>(var->getType()), ccode, name, lengths);
             }
         }
     }
@@ -83,12 +92,20 @@ void GeneratorC::GenerateDeclaration(const DeclarationSequence& declaration, std
         if (declaration.hideAertefacts.count(name) == 0) {
             GenerateTabs(cur);
             Context* ctx = art->getContext();
-            if (ctx->getTypeName() != "VarContext") {
+            VarContext* var = (ctx->getTypeName() == "VarContext" 
+                ? dynamic_cast<VarContext*>(ctx)
+                : nullptr
+            );
+            if (var == nullptr) {
                 cur << "typedef ";
             }
             ctx->generate(this, cur, name);
             if (!dynamic_cast<Procedure*>(ctx)) {
                 cur << ";\n";
+            }
+            if (var && var->getType()->getTypeName() == "TypeArrayContext") {
+                std::vector<size_t> lengths;
+                GenerateArrayBaseRef(*dynamic_cast<TypeArrayContext*>(var->getType()), cur, name, lengths);
             }
         }
     }
@@ -148,7 +165,6 @@ void GeneratorC::GenerateTypeChar(const TypeCharContext& type, std::stringstream
 }
 
 void GeneratorC::GenerateTypeByte(const TypeByteContext& type, std::stringstream& cur, const std::string& name) {
-    // TODO возможно стоит создать отдельный тип byte
     cur << "unsigned char";
     if (name != "") {
         cur << " " << name;
@@ -163,7 +179,7 @@ void GeneratorC::GenerateTypeString(const TypeStringContext& type, std::stringst
 }
 
 void GeneratorC::GenerateTypeNil(const TypeNilContext& type, std::stringstream& cur, const std::string& name) {
-    // TODO Возможно стоит создать структуру NIL, хотя в нормальной программе нет смысла создавать такой тип
+    // Возможно стоит создать структуру NIL, хотя в нормальной программе нет смысла создавать такой тип
 }
 
 void GeneratorC::GenerateTypeSet(const TypeSetContext& type, std::stringstream& cur, const std::string& name) {
@@ -175,9 +191,10 @@ void GeneratorC::GenerateTypeSet(const TypeSetContext& type, std::stringstream& 
 
 void GeneratorC::GenerateTypeRecord(const TypeRecordContext& type, std::stringstream& cur, const std::string& name) {
     // Для уже определенных типов генерируем их тип как имя
+    std::string artName = name;
     if (type.getNamedArtefact()) {
-        std::string artName = type.getNamedArtefact()->getName();
-        if (!artName.empty() && artName != name) {
+        artName = type.getNamedArtefact()->getName();
+        if (!artName.empty() && artName != name && tmpRecords.count(artName) == 0) {
             cur << artName;
             if (!name.empty()) {
                 cur << " " << name;
@@ -185,7 +202,11 @@ void GeneratorC::GenerateTypeRecord(const TypeRecordContext& type, std::stringst
             return;
         }
     }
-    cur << "struct {\n";
+    cur << "struct";
+    if (artName != "") {
+        cur << " " << artName;
+    }
+    cur << " {\n";
     tabcnt++;
     GenerateTabs(cur); cur << "char* __record_type;\n";
     GenerateRecordElements(type, cur);
@@ -193,6 +214,7 @@ void GeneratorC::GenerateTypeRecord(const TypeRecordContext& type, std::stringst
     GenerateTabs(cur); cur << "}";
     if (name != "") {
         cur << " " << name;
+        isRecordDeclarated[name] = true;
     }
 }
 
@@ -204,16 +226,46 @@ void GeneratorC::GenerateRecordElements(const TypeRecordContext& type, std::stri
 }
 
 void GeneratorC::GenerateTypePointer(const TypePointerContext& type, std::stringstream& cur, const std::string& name) {
-    // TODO сделать возможным запись Record A { next: POINTER TO A}
-    // Возможно через создание псевдоимен
+    // Чтобы обеспечить предекларацию, структура, на которую указывает текущий указатель
+    // при отсутсвии своего имени получает временное имя
+    std::string pointerName;
+    if (type.getNamedArtefact()) {
+        pointerName = type.getNamedArtefact()->getName();
+    }
+    if (!pointerName.empty() && isParticalDeclaratedPointer[pointerName]) {
+        cur << "struct rec_" << pointerName << "*";
+        if (name != "") {
+            cur << " " << name;
+        }
+        return;
+    }
+    if (!pointerName.empty()) {
+        isParticalDeclaratedPointer[name] = true;
+    }
     if (type.recordType->getNamedArtefact()) {
-        cur << type.recordType->getNamedArtefact()->getName();
+        std::string recName = type.recordType->getNamedArtefact()->getName();
+        if (!isRecordDeclarated[recName]) {
+            cur << "struct ";
+        }
+        cur << recName;
     } else {
-        type.recordType->generate(this, cur, "");
+        if (!pointerName.empty()) {
+            NamedArtefact na("rec_" + pointerName, type.recordType);
+            tmpRecords.insert(na.getName());
+            type.recordType->setNamedArtefact(&na);
+            type.recordType->generate(this, cur, "");
+            type.recordType->setNamedArtefact(nullptr);
+            tmpRecords.erase(na.getName());
+        } else {
+            type.recordType->generate(this, cur, "");
+        }
     }
     cur << "*";
     if (name != "") {
         cur << " " << name;
+    }
+    if (!pointerName.empty()) {
+        isParticalDeclaratedPointer[name] = false;
     }
 }
 
@@ -221,13 +273,13 @@ void GeneratorC::GenerateTypeArray(const TypeArrayContext& type, std::stringstre
     cur << "struct";
     cur << " {\n";
     tabcnt++;
+    GenerateTabs(cur); cur << "size_t lenght;\n";
     if (type.valueType->getNamedArtefact()) {
         GenerateTabs(cur); cur << type.valueType->getNamedArtefact()->getName();
     } else {
         GenerateTabs(cur); type.valueType->generate(this, cur, "");
     }
-    cur << " value[" << type.length << "];\n";
-    GenerateTabs(cur); cur << "size_t lenght;\n";
+    cur << "* value" << ";\n";
     // GenerateTabs(cur); cur << "unsigned lenght = " << type.length << ";\n";
     tabcnt--;
     GenerateTabs(cur); cur << "}";
@@ -298,11 +350,18 @@ void GeneratorC::GenerateProcedureHeading(const Procedure& ctx, std::stringstrea
             } else {
                 start = false;
             }
-            param->type->generate(this, cur, "");
-            if (param->getIsVar()) {
-                cur << "* __ptr_" << name;
+            if (param->type->getTypeName() == "TypeArrayContext") {
+                if (!param->getIsVar()) {
+                    cur << "const ";
+                }
+                cur << "BASE_ARRAY* __base_ptr_" << name;
             } else {
-                cur << " " << name;
+                param->type->generate(this, cur, "");
+                if (param->getIsVar()) {
+                    cur << "* __ptr_" << name;
+                } else {
+                    cur << " " << name;
+                }
             }
         }
     }
@@ -316,6 +375,21 @@ void GeneratorC::GenerateProcedureBody(const Procedure& ctx, std::stringstream& 
     tabcnt++;
     GenerateDeclaration(*ctx.declaration, cur, true);
     for (auto* art : ctx.refs) {
+        std::cout << art->getName() << " " << art->getContext()->getTypeName() << std::endl;
+        VarContext* var = (art->getContext()->getTypeName() == "VarContext"
+            ? dynamic_cast<VarContext*>(art->getContext())
+            : nullptr
+        );
+        if (var == nullptr) {
+            std::cout << "NULL VAR" << std::endl;
+            continue;
+        }
+        if (var->getType()->getTypeName() == "TypeArrayContext") {
+            TypeArrayContext* arr = dynamic_cast<TypeArrayContext*>(var->getType());
+            GenerateTabs(cur);
+            arr->generate(this, cur, "");
+            cur << "* __ptr_" << art->getName() << " = (void *) __base_ptr_" << art->getName() << ";\n";
+        }
         art->setName("(*__ptr_" + art->getName() + ")");
     }
     GenerateStatement(*ctx.body.statement, cur);
@@ -379,6 +453,10 @@ void GeneratorC::GenerateProcedureCall(const ProcedureCall& statement, std::stri
             i++;
             cnt_p = formalParams[i]->parameters.size();
             isVar = formalParams[i]->getIsVar();
+        }
+        if (formalParams[i]->getType()->getTypeName() == "TypeArrayContext") {
+            cur << "(BASE_ARRAY*) ";
+            isVar = true;
         }
         if (isVar) {
             cur << "&";
@@ -531,7 +609,12 @@ void GeneratorC::GenerateDesignator(const Designator& designator, std::stringstr
 }
 
 void GeneratorC::GenerateRecordSelector(const RecordSelector& selector, std::stringstream& cur) {
-    cur << "." << selector.ident;
+    if (selector.type->getTypeName() == "TypePointerContext") {
+        cur << "->";
+    } else {
+        cur << ".";
+    }
+    cur << selector.ident;
 }
 
 void GeneratorC::GenerateIndexSelector(const IndexSelector& selector, std::stringstream& cur) {
@@ -543,7 +626,6 @@ void GeneratorC::GenerateIndexSelector(const IndexSelector& selector, std::strin
 }
 
 void GeneratorC::GenerateAssertSelector(const AssertSelector& selector, std::stringstream& cur) {
-    // TODO генерация Assert
     if (selector.isAlwaysTrue) {
         return;
     }
@@ -720,6 +802,12 @@ void GeneratorC::GenerateDesignatorWrapper(const DesignatorWrapper& st, std::str
             } else {
                 start = false;
             }
+            if (p->resultType->getTypeName() == "TypeArrayContext") {
+                cur << "(BASE_ARRAY*) ";
+            }
+            if (p->getIsVar()) {
+                cur << "&";
+            }
             GenerateExpression(*p, cur);
         }
         cur << ")";
@@ -743,15 +831,41 @@ void GeneratorC::GenerateInitialisation(const DeclarationSequence& declaration, 
                 } else if (var->context->getTypeName() == "TypeArrayContext") {
                     TypeArrayContext* arr = dynamic_cast<TypeArrayContext*>(var->context);
                     std::vector<size_t> id;
-                    InitArray(*arr, cur, name, id);
+                    InitArray(*arr, cur, name, name, id);
                 }
             }
         }
     }
 }
 
-void GeneratorC::InitArray(const TypeArrayContext& arr, std::stringstream& cur, const std::string& name, std::vector<size_t>& indexes) {
+void GeneratorC::GenerateArrayBaseRef(
+    const TypeArrayContext& arr,
+    std::stringstream& cur,
+    const std::string& name,
+    std::vector<size_t>& lenghts
+) {
+    TypeContext* valueType = arr.valueType;
+    GenerateTabs(cur);
+    valueType->generate(this, cur, name);
+    cur << "_base_ref" << lenghts.size();
+    lenghts.push_back(arr.length);
+    for (size_t i : lenghts) {
+        cur << "[" << i << "]";
+    }
+    cur << ";\n";
+    if (valueType->getTypeName() == "TypeArrayContext") {
+        TypeArrayContext* valueArr = dynamic_cast<TypeArrayContext*>(valueType);
+        GenerateArrayBaseRef(*valueArr, cur, name, lenghts);
+    }
+}
+
+void GeneratorC::InitArray(const TypeArrayContext& arr, std::stringstream& cur, const std::string& name, const std::string& base_name, std::vector<size_t>& indexes) {
     GenerateTabs(cur); cur << name << ".lenght = " << arr.length << ";\n";
+    GenerateTabs(cur); cur << name << ".value = (void*) " << base_name << "_base_ref" << indexes.size();
+    for (size_t id : indexes) {
+        cur << "[i" << id << "]";
+    }
+    cur << ";\n";
     TypeContext* valueType = arr.valueType;
     size_t curId = 0;
     if (!indexes.empty()) {
@@ -773,7 +887,7 @@ void GeneratorC::InitArray(const TypeArrayContext& arr, std::stringstream& cur, 
         GenerateTabs(cur); cur << "for (size_t i" << curId << " = 0; i" << curId << " < " << arr.length << "; i" << curId << " += 1) {\n";
         tabcnt++;
         if (inArr) {
-            InitArray(*inArr, cur, new_name, indexes);
+            InitArray(*inArr, cur, new_name, base_name, indexes);
         } else {
             InitRecord(*rec, cur, new_name);
         }
@@ -802,7 +916,7 @@ void GeneratorC::InitRecord(const TypeRecordContext& record, std::stringstream& 
                 } else if (var->context->getTypeName() == "TypeArrayContext") {
                     TypeArrayContext* arr = dynamic_cast<TypeArrayContext*>(var->context);
                     std::vector<size_t> id;
-                    InitArray(*arr, cur, name + "." + insightName, id);
+                    InitArray(*arr, cur, name + "." + insightName, name + "." + insightName, id);
                 }
             }
         }

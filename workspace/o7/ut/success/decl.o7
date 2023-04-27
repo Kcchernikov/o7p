@@ -47,10 +47,10 @@ TYPE
     next   : NodePtr
   END;
 
-  (*Node = POINTER TO RECORD 
+  Node1 = POINTER TO RECORD 
     rec    : POINTER TO AnyRec;
-    next   : Node
-  END;*)
+    next   : Node1
+  END;
 
    (*Node = RECORD 
     rec    : POINTER TO AnyRec;
@@ -78,11 +78,13 @@ VAR
   products : ARRAY productsCount OF Product;
   child: ParticleChild;
 
-PROCEDURE AddProductsToStock(VAR child2: ParticleChild);
+PROCEDURE AddProductsToStock(VAR child2: ParticleChild; VAR pr: ARRAY OF Product);
 VAR i : INTEGER;
 BEGIN 
   FOR i := 0 TO (*LEN(products) -1*)2 DO    
     products[i].stock := products[i].stock + products[i].plan;    
   END
 END AddProductsToStock;
+BEGIN
+  AddProductsToStock(child, products);
 END Init.

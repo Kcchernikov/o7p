@@ -9,7 +9,7 @@ VAR
   value: ARRAY len OF INTEGER;
   isInteger: BOOLEAN;
 
-PROCEDURE Log2(x: INTEGER): INTEGER;
+PROCEDURE Log2(VAR x: INTEGER): INTEGER;
  VAR y: INTEGER; (*assume x>0*)
 BEGIN 
   y := 0;

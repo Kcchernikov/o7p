@@ -102,7 +102,7 @@ ModuleCompiler::ModuleCompiler(const char* str): moduleStr{str},
     base->addConstNamedArtefact(new ConstDeclaration("ORD", new ConstFactor(CreateConstORD(), nullptr), false));
     base->addConstNamedArtefact(new ConstDeclaration("CHR", new ConstFactor(CreateConstCHR(), nullptr), false));
 
-    // TODO Добавить оствшиеся неконстантные функции, такие как INC, LEN, NEW
+    // TODO Добавить оставшиеся неконстантные функции, такие как INC, LEN, NEW
     // base->addNamedArtefact(new NamedArtefact("LEN", new Procedure(base, new ProcedureBody())));
     declaration = base;
 }
@@ -1205,7 +1205,10 @@ _2:
     }
     return erMessage("',' or ':' expected");
 _3:
-    // TODO: support array
+    // Массив представляет из себя структуру из массива и его длинв
+    // Для возможности передачи в функцию структура содержит только указатель на массив
+    // Это вызывает проблемы с инициализацией массива при генерации кода, которые решаются
+    // созданием массивов-баз в той же области видимости, что и изначальный массив
     if(isKeyWord("ARRAY")) {
         goto _4;
     }

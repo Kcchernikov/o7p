@@ -13,3 +13,7 @@ BASE_REC* ConvertPtr(BASE_REC* ptr, const char* type) {
     assert(strcmp(ptr->__record_type, type) == 0);
     return ptr;
 }
+
+typedef struct BASE_ARRAY {
+    size_t lenght;
+} BASE_ARRAY;
