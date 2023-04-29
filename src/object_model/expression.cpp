@@ -42,15 +42,20 @@ void Set::debugOut(size_t tabcnt) {
 ActualParameters::ActualParameters(const std::vector<Expression*>& p): params(p) {
 }
 
-Factor::Factor(ConstFactor* factor): value(factor), isVar(false) {
+Factor::Factor(ConstFactor* factor): value(factor), isVar(false), var(nullptr) {
     resultType = factor->getResultType();
 }
 
-Factor::Factor(Set* st): value(st), isVar(false) {
+Factor::Factor(Set* st): value(st), isVar(false), var(nullptr) {
     resultType = st->getResultType();
 }
 
 Factor::Factor(DesignatorWrapper* wr): value(wr), isVar(wr->designator->getIsVar() && wr->params == nullptr) {
+    if (isVar) {
+        var = wr->designator->getVar();
+    } else {
+        var = nullptr;
+    }
     if (wr->params) {
         resultType = ValidateParameters(wr->designator, wr->params->params);
         if (!resultType) {
@@ -61,11 +66,11 @@ Factor::Factor(DesignatorWrapper* wr): value(wr), isVar(wr->designator->getIsVar
     }
 }
 
-Factor::Factor(Expression* exp): value(exp), isVar(exp->getIsVar()) {
+Factor::Factor(Expression* exp): value(exp), isVar(exp->getIsVar()), var(exp->getVar()) {
     resultType = exp->getResultType();
 }
 
-Factor::Factor(Factor* factor): value(factor), isVar(false) {
+Factor::Factor(Factor* factor): value(factor), isVar(false), var(nullptr) {
     if (factor->getResultType()->getTypeName() != "TypeBoolContext") {
         assert(false && "Negotiation is enable only for boolean");
     }
@@ -74,6 +79,10 @@ Factor::Factor(Factor* factor): value(factor), isVar(false) {
 
 TypeContext* Factor::getResultType() {
     return resultType;
+}
+
+VarContext* Factor::getVar() {
+    return var;
 }
 
 bool Factor::getIsVar() {
@@ -121,6 +130,7 @@ void Term::setStartFactor(Factor* factor) {
     startFactor = factor;
     resultType = startFactor->getResultType();
     isVar = factor->getIsVar();
+    var = factor->getVar();
 }
 
 void CheckBinaryOperator(TypeContext* type, BinaryOperator op) {
@@ -160,11 +170,16 @@ void Term::addFactor(BinaryOperator op, Factor* factor) {
         assert(false && "Binary operators ara avaliable only for the same types");
     }
     CheckBinaryOperator(resultType, op);
-    isVar = false;  
+    isVar = false;
+    var = nullptr;
 }
 
 TypeContext* Term::getResultType() {
     return resultType;
+}
+
+VarContext* Term::getVar() {
+    return var;
 }
 
 bool Term::getIsVar() {
@@ -209,14 +224,17 @@ void SimpleExpression::setStartTerm(UnaryOperator op, Term* term) {
     resultType = term->getResultType();
     if (op != UnaryOperator::NONE) {
         isVar = false;
+        var = nullptr;
     } else {
         isVar = term->getIsVar();
+        var = term->getVar();
     }
     CheckUnaryOperator(resultType, op);
 }
 
 void SimpleExpression::addTerm(BinaryOperator op, Term* term) {
     isVar = false;
+    var = nullptr;
     terms.push_back({op, term});
     if (resultType != term->getResultType()) {
         assert(false && "Binary operators ara avaliable only for the same types");
@@ -226,6 +244,10 @@ void SimpleExpression::addTerm(BinaryOperator op, Term* term) {
 
 TypeContext* SimpleExpression::getResultType() {
     return resultType;
+}
+
+VarContext* SimpleExpression::getVar() {
+    return var;
 }
 
 bool SimpleExpression::getIsVar() {
@@ -248,6 +270,7 @@ void Expression::setFirstSimpleExpression(SimpleExpression* exp) {
     resultType = exp->getResultType();
     secondSimpleExpression = std::nullopt;
     isVar = exp->getIsVar();
+    var = exp->getVar();
 }
 
 void CheckRelation(TypeContext* type1, Relation rel, TypeContext* type2) {
@@ -332,10 +355,15 @@ void Expression::setSecondSimpleExpression(Relation rel, SimpleExpression* exp, 
     secondSimpleExpression = {rel, exp};
     resultType = result;
     isVar = false;
+    var = nullptr;
 }
 
 TypeContext* Expression::getResultType() {
     return resultType;
+}
+
+VarContext* Expression::getVar() {
+    return var;
 }
 
 bool Expression::getIsVar() {

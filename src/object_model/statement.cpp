@@ -105,6 +105,27 @@ void CaseStatement::setExpression(Expression *exp) {
         assert(false && "Сonditional expressions must not be null");  
     }
     expression = exp;
+    // label = integer | string | qualident
+    if (exp->getResultType()->getTypeName() == "TypeBoolContext") {
+        assert(false && "Bool is not avaliable in CaseStatement");
+    } else if (exp->getResultType()->getTypeName() == "TypeRealContext") {
+        assert(false && "Real is not avaliable in CaseStatement");
+    } else if (exp->getResultType()->getTypeName() == "TypeNilContext") {
+        assert(false && "NIL is not avaliable in CaseStatement");
+    } else if (exp->getResultType()->getTypeName() == "TypeSetContext") {
+        assert(false && "Set is not avaliable in CaseStatement");
+    } else if (exp->getResultType()->getTypeName() == "TypeArrayContext") {
+        TypeArrayContext* arr = dynamic_cast<TypeArrayContext*>(exp->getResultType());
+        // Возможная длина составляет либо 0, либо 1. Если длина 0, то она не известна, а значит, проверка
+        // на данном этапе не может быть выполнена
+        if (arr->getElementType()->getTypeName() != "TypeCharContext" || arr->getLenght() > 1) {
+            assert(false && "Not char arrays and char arrays with length more than 1 is not avaliable in CaseStatement");
+        }
+    } else if (exp->getResultType()->getTypeName() == "TypeStringContext") {
+        if (dynamic_cast<TypeStringContext*>(exp->getResultType())->getLenght() > 1) {
+            assert(false && "Only single char strings are avaliable in CaseStatement");
+        }
+    }
 }
 
 void CaseStatement::addCase(CaseLabelList* labelList, StatementSequence* st) {

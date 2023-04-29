@@ -381,7 +381,6 @@ void GeneratorC::GenerateProcedureBody(const Procedure& ctx, std::stringstream& 
             : nullptr
         );
         if (var == nullptr) {
-            std::cout << "NULL VAR" << std::endl;
             continue;
         }
         if (var->getType()->getTypeName() == "TypeArrayContext") {
@@ -492,7 +491,104 @@ void GeneratorC::GenerateIf(const IfStatement& statement, std::stringstream& cur
 }
 
 void GeneratorC::GenerateCase(const CaseStatement& statement, std::stringstream& cur) {
-    // TODO Generate Case
+    // Поскольку надо обрабатывать интервалы и CaseStatement предполагает только одно
+    // изначальное вычисление выражения, то CaseStatement генерируется во вспомогательную
+    // переменную и набор проверок if
+    enum EXPTYPE {
+        INTEGER,
+        CHAR,
+        SINGLE_CHAR_STRING,
+        RECORD,
+        POINTER,
+    };
+    EXPTYPE type;
+    cur << "// Case statement\n";
+    GenerateTabs(cur);
+    if (statement.expression->getResultType()->getTypeName() == "TypeIntegerContext") {
+        type = INTEGER;
+        cur << "long long";
+    } else if (statement.expression->getResultType()->getTypeName() == "TypeCharContext") {
+        type = CHAR;
+        cur << "char";
+    } else if (statement.expression->getResultType()->getTypeName() == "TypeStringContext") {
+        type = SINGLE_CHAR_STRING;
+        cur << "char";
+    } else if (statement.expression->getResultType()->getTypeName() == "TypeRecordContext") {
+        type = RECORD;
+        cur << "char*";
+    } else { // Остальные типы отсеются на построении объектной модели
+        type = POINTER;
+        cur << "char*";
+    }
+    size_t curCaseId = caseId++;
+    cur << " __case" << curCaseId << " = ";
+    GenerateExpression(*statement.expression, cur);
+    if (type == RECORD) {
+        cur << ".__record_type";
+    } else if (type == POINTER) {
+        cur << "->__record_type";
+    }
+    cur << ";\n";
+    for (auto cs : statement.cases) {
+        GenerateTabs(cur); cur << "if (";
+        bool isStart = true;
+        TypeContext* convertedType = nullptr;
+        for (auto range : cs.first->list) {
+            if (isStart) {
+                isStart = false;
+            } else {
+                cur << " || ";
+            }
+            if (range.second != nullptr) {
+                cur << "(";
+                cur << "__case" << curCaseId << " >= ";
+                range.first->generate(this, cur, "");
+                cur << " && __case" << curCaseId << " <= ";
+                range.second->generate(this, cur, "");
+                cur << ")";
+            } else {
+                if (type == RECORD || type == POINTER) {
+                    cur << "strcmp(" << "__case" << curCaseId << ", ";
+                    std::string cmpType = range.first->getNamedArtefact()->getName();
+                    if (POINTER) {
+                        TypePointerContext* ptr = dynamic_cast<TypePointerContext*>(range.first);
+                        cmpType = ptr->recordType->getNamedArtefact()->getName();
+                    }
+                    cur << "\"" << cmpType << "\"";
+                    cur << ") == 0";
+                    convertedType = range.first->getType();
+                } else {
+                    cur << "__case" << curCaseId << " == ";
+                    range.first->generate(this, cur, "");
+                }
+            }
+        }
+        cur << ") {\n";
+        tabcnt++;
+        // Проблема связана с тем, что подменяемая переменная может находится посреди
+        // десигнатора (но не дальше, чем на расстоянии 2 от начала, так как задается через qualident).
+        // В качестве решения запоминается VarContext и десигнатор, в случае его обнаружения, подменяет
+        // имя на временное
+        if (type == POINTER) {
+            VarContext* var = statement.expression->getVar();
+            std::string oldName = var->getNamedArtefact()->getName();
+            std::stringstream tmp;
+            tmp <<  "__converted_" << oldName << curCaseId;
+            std::string convertedName = tmp.str();
+            GenerateTabs(cur);
+            convertedType->generate(this, cur, "");
+            cur << " " << convertedName << " = (void*) " << oldName << ";\n";
+            changedVarNames[var] = convertedName;
+            var->getNamedArtefact()->setName(convertedName);
+            GenerateStatement(*cs.second, cur);
+            changedVarNames.erase(var);
+            statement.expression->getVar()->getNamedArtefact()->setName(oldName);
+        } else {
+            GenerateStatement(*cs.second, cur);
+        }
+        tabcnt--;
+        GenerateTabs(cur); cur << "}\n";
+    }
 }
 
 void GeneratorC::GenerateWhile(const WhileStatement& statement, std::stringstream& cur) {
@@ -562,13 +658,35 @@ void GeneratorC::GenerateFor(const ForStatement& statement, std::stringstream& c
 }
 
 void GeneratorC::GenerateDesignator(const Designator& designator, std::stringstream& cur) {
+    std::stringstream tmp;
     if (designator.qualident.idents.size() == 1 && designator.qualident.varArtefact) {
-        cur << designator.qualident.varArtefact->getName();
+        tmp << designator.qualident.varArtefact->getName();
     } else {
-        cur << designator.qualident.idents[0];
+        VarContext* var = designator.qualident.firstVar;
+        if (var != nullptr && changedVarNames.count(var) != 0) {
+            tmp.clear();
+            tmp << changedVarNames[var];
+        } else {
+            tmp << designator.qualident.idents[0];
+        }
     }
-    for (size_t i = 1; i < designator.qualident.idents.size(); ++i) {
-        cur << "." << designator.qualident.idents[i];
+    for (size_t i = 1; i < designator.qualident.idents.size(); ++i) { // максимум 2
+        if (designator.qualident.isFirstPointer) {
+            tmp << "->";
+        } else {
+            tmp << ".";
+        }
+        tmp << designator.qualident.idents[i];
+        if (designator.qualident.varArtefact != nullptr) {
+            Context* ctx = designator.qualident.varArtefact->getContext();
+            if (ctx->getTypeName() == "VarContext") {
+                VarContext* var = dynamic_cast<VarContext*>(ctx);
+                if (var != nullptr && changedVarNames.count(var) != 0) {
+                    tmp.clear();
+                    tmp << changedVarNames[var];
+                }
+            }
+        }
     }
     std::vector<std::string> assertTypes;
     std::vector<bool> isPointer;
@@ -602,6 +720,7 @@ void GeneratorC::GenerateDesignator(const Designator& designator, std::stringstr
             cur << "((" << assertTypes[i] << "*) ConvertPtr((BASE_REC*)(";
         }
     }
+    cur << tmp.str();
 
     for (const auto selector : designator.selectors) {
         selector->generate(this, cur);

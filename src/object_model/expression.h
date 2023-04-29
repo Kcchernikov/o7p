@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "../smodel/type.h"
+#include "../smodel/variable.h"
 #include "declaration.h"
 #include "operator.h"
 
@@ -25,6 +26,7 @@ public:
 private:
     std::vector<std::pair<Expression*, Expression*>> elements;
     TypeContext* resultType;
+    VarContext* var;
     bool isVar;
 };
 
@@ -47,6 +49,7 @@ public:
     Factor(Expression* exp);
     Factor(Factor* factor);
     TypeContext* getResultType();
+    VarContext* getVar();
     bool getIsVar();
     void debugOut(size_t tabcnt = 0);
 
@@ -55,6 +58,7 @@ private:
     //       set | designator [ActualParameters] | "(" expression ")" | "~" factor.
     std::variant<ConstFactor*, Set*, DesignatorWrapper*, Expression*, Factor*> value;
     TypeContext* resultType;
+    VarContext* var;
     bool isVar;
 };
 
@@ -64,6 +68,7 @@ public:
     void setStartFactor(Factor* factor);
     void addFactor(BinaryOperator op, Factor* factor);
     TypeContext* getResultType();
+    VarContext* getVar();
     bool getIsVar();
     void debugOut(size_t tabcnt = 0);
 
@@ -71,6 +76,7 @@ private:
     Factor* startFactor;
     std::vector<std::pair<BinaryOperator, Factor*>> factors;
     TypeContext* resultType;
+    VarContext* var;
     bool isVar;
 };
 
@@ -80,6 +86,7 @@ public:
     void setStartTerm(UnaryOperator op, Term* term);
     void addTerm(BinaryOperator op, Term* term);
     TypeContext* getResultType();
+    VarContext* getVar();
     bool getIsVar();
     void debugOut(size_t tabcnt = 0);
 
@@ -88,6 +95,7 @@ private:
     Term* startTerm;
     std::vector<std::pair<BinaryOperator, Term*>> terms;
     TypeContext* resultType;
+    VarContext* var;
     bool isVar;
 };
 
@@ -97,12 +105,14 @@ public:
     void setFirstSimpleExpression(SimpleExpression* exp);
     void setSecondSimpleExpression(Relation rel, SimpleExpression* exp, TypeContext* result);
     TypeContext* getResultType();
+    VarContext* getVar();
     bool getIsVar();
     void debugOut(size_t tabcnt = 0);
 private:
     SimpleExpression* firstSimpleExpression;
     std::optional<std::pair<Relation, SimpleExpression*>> secondSimpleExpression;
     TypeContext* resultType;
+    VarContext* var;
     bool isVar;
 };
 

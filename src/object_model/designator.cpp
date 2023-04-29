@@ -121,6 +121,11 @@ void Designator::addQualident(Qualident qual) {
     qualident = qual;
     type = qual.type;
     isVar = qual.isVariable;
+    var = nullptr;
+    if (qual.varArtefact != nullptr && qual.varArtefact->getContext() != nullptr
+        && qual.varArtefact->getContext()->getTypeName() == "VarContext") {
+        var = dynamic_cast<VarContext*>(qual.varArtefact->getContext());
+    }
 }
 
 void Designator::addRecordSelector(std::string ident) {
@@ -192,6 +197,10 @@ void Designator::debugOut(size_t tabcnt) {
 
 TypeContext* Designator::getType() {
     return type;
+}
+
+VarContext* Designator::getVar() {
+    return var;
 }
 
 bool Designator::getIsVar() {

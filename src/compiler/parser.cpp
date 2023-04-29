@@ -1676,6 +1676,11 @@ _end:
 // LabelRange = label [".." label].
 // label = integer | string | qualident.
 bool ModuleCompiler::isCaseStatement(CaseStatement** st) {
+    // В Обероне возможна конструкция, приведенная в тесте ut/success/state.o7
+    // В случае с CaseStatement с указателями, если expression является десигнатором,
+    // то на время исполнения конкретного кейса, ему присваивается тип, отраженный в label.
+    // Это поддерживается временной подменой типа у переменной, при проверки всех соответсвующих
+    // условий
 //_0:
     CaseStatement* caseSt = new CaseStatement();
     Expression* exp = nullptr;
@@ -1692,8 +1697,20 @@ bool ModuleCompiler::isCaseStatement(CaseStatement** st) {
     delete list;
     return false;
 _1:
+    bool changeType = false;
+    VarContext* changeContext = nullptr;
+    TypeContext* prevType = nullptr;
     if(isExpression(&exp)) {
         caseSt->setExpression(exp);
+        if (exp->getIsVar() && exp->getResultType()->getTypeName() == "TypeRecordContext"
+            || exp->getResultType()->getTypeName() == "TypePointerContext") {
+            changeType = true;
+            changeContext = exp->getVar();
+            if (!changeContext) {
+                return erMessage("Only vars in record and pointer case expression are avaliable");
+            }
+            prevType = changeContext->getType();
+        }
         goto _2;
     }
     return erMessage("Expression expected");
@@ -1714,6 +1731,19 @@ _3:
     }
     if(isQualident(qualident)) {
         ctx1 = qualident.type;
+        if (changeType) {
+            if (qualident.varArtefact != nullptr) {
+                Context* ctx = qualident.varArtefact->getContext();
+                VarContext* var = (ctx->getTypeName() == "VarContext" ? dynamic_cast<VarContext*>(ctx) : nullptr);
+                if (var) {
+                    return erMessage("Case label record's or pointer's qualident must be type");
+                }
+            }
+            if (qualident.type == nullptr) {
+                return erMessage("Label's types must not be null in case record and pointer statements");
+            }
+            changeContext->setType(qualident.type);
+        }
         goto _4;
     }
     return erMessage("Integer or String or Qualified Ident expected");
@@ -1799,6 +1829,9 @@ _8:
     }
     return erMessage("'|' or END expected");
 _end:
+    if (changeType) {
+        changeContext->setType(prevType);
+    }
     (*st) = caseSt;
     return true;
 }
@@ -2617,6 +2650,9 @@ bool ModuleCompiler::isQualident(Qualident& qualident, bool createIfNotExists) {
     qualident.idents.clear();
     qualident.isVariable = false;
     qualident.isConstant = false;
+    qualident.isFirstPointer = false;
+    qualident.firstVar = nullptr;
+    qualident.varArtefact = nullptr;
     Location constExp;
     storeLocation(constExp);
     Location l;
@@ -2630,7 +2666,7 @@ bool ModuleCompiler::isQualident(Qualident& qualident, bool createIfNotExists) {
     return false;
 _1:
     // При наличии первого идентификатора возможна вторая часть
-    //или корректный выход
+    // или корректный выход
     if(isSymbol(moduleStr[pos], '.')) {
         storeLocation(l);   // Возможно, что точка от перечисления диапазона
         ++pos;
@@ -2664,8 +2700,8 @@ _1:
             qualident.type = ctx->getType();
             if (ctx != qualident.type || ctx->getTypeName() == "ProcContext" || ctx->getTypeName() == "Procedure") {
                 qualident.isVariable = true;
-                qualident.varArtefact = art;
             }
+            qualident.varArtefact = art;
         }
     }
     goto _end;
@@ -2685,6 +2721,7 @@ _2:
             if (ctx != qualident.type || ctx->getTypeName() == "ProcContext" || ctx->getTypeName() == "Procedure") {
                 qualident.isVariable = true;
             }
+            qualident.varArtefact = art;
             qualident.type->setImportFrom(ident1);
         } else {
             NamedArtefact* rec = declaration->getArtefactByName(ident1);
@@ -2697,12 +2734,24 @@ _2:
             } else {
                 return erMessage("Invalid qualident '" + tmpValue + "'");
             }
+            if (ctx->getTypeName() == "VarContext") {
+                qualident.firstVar = dynamic_cast<VarContext*>(ctx);
+            }
             TypeRecordContext* record = (ctx->getType()->getTypeName() == "TypeRecordContext" 
                 ? dynamic_cast<TypeRecordContext*>(ctx->getType())
                 : nullptr
             );
             if (!record) {
-                return erMessage("Invalid qualident '" + tmpValue + "'");
+                TypePointerContext* pointer = (ctx->getType()->getTypeName() == "TypePointerContext" 
+                    ? dynamic_cast<TypePointerContext*>(ctx->getType())
+                    : nullptr
+                );
+                if (pointer) {
+                    record = pointer->getRecord();
+                    qualident.isFirstPointer = true;
+                } else {
+                    return erMessage("Invalid qualident '" + tmpValue + "'");
+                }
             }
             ds = record->getDeclaration();
             if (!ds) {
@@ -2713,6 +2762,7 @@ _2:
                 return erMessage("Invalid qualident '" + tmpValue + "'");
             }
             qualident.type = art->getContext()->getType();
+            qualident.varArtefact = art;
         }
         goto _end;
     }

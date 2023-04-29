@@ -4,6 +4,7 @@
 #include "generator.h"
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 class GeneratorC: public Generator {
@@ -62,9 +63,11 @@ private:
     const size_t tabsz = 4;
     size_t tabcnt = 0;
     size_t markId = 0;
+    size_t caseId = 0;
     std::unordered_map<std::string, bool> isRecordDeclarated;
     std::unordered_map<std::string, bool> isParticalDeclaratedPointer;
     std::unordered_set<std::string> tmpRecords;
+    std::unordered_map<VarContext*, std::string> changedVarNames;
 };
 
 #endif // GENERATOR_C_H

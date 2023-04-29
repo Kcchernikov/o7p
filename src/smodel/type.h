@@ -126,6 +126,10 @@ public:
         return this;
     }
 
+    size_t getLenght() const {
+        return length;
+    }
+
     // Вывод отладочной информации о типе
     virtual void debugOut(size_t tabcnt = 0);
     // генерация кода

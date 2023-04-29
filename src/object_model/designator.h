@@ -12,8 +12,12 @@ struct Qualident {
     std::vector<std::string> idents;
     TypeContext* type;
     NamedArtefact* varArtefact = nullptr;
+    // Адресс переменной первого ident, заполняется только, если есть второй ident
+    VarContext* firstVar = nullptr;
     bool isVariable;
     bool isConstant;
+    // Является ли первый ident указателем
+    bool isFirstPointer;
 };
 
 class Selector {
@@ -93,6 +97,7 @@ class Designator {
 public:
     void debugOut(size_t tabcnt = 0);
     TypeContext* getType();
+    VarContext* getVar();
     bool getIsVar();
     void addQualident(Qualident qual);
     void addRecordSelector(std::string ident);
@@ -104,6 +109,7 @@ private:
     std::vector<Selector*> selectors;
     TypeContext* type;
     bool isVar = true;
+    VarContext* var;
 };
 
 
