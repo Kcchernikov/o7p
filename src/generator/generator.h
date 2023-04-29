@@ -14,7 +14,7 @@ class Generator {
 public:
     Generator() = default;
     virtual ~Generator() = default;
-    virtual void GenerateModule(const Module& module, std::stringstream& hcode, std::stringstream& ccode) = 0;
+    virtual void GenerateModule(const Module& module, std::string fileName, std::stringstream& hcode, std::stringstream& ccode) = 0;
     virtual void GenerateDeclaration(const DeclarationSequence& declaration, std::stringstream& cur, bool needInit) = 0;
     virtual void GenerateConstDeclaration(const ConstDeclaration& declaration, std::stringstream& hcode, std::stringstream& ccode) = 0;
     virtual void GenerateConstDeclaration(const ConstDeclaration& declaration, std::stringstream& cur) = 0;

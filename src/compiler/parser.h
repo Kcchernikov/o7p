@@ -21,6 +21,12 @@ struct Location {
     int column;
 };
 
+struct CompileOpts {
+    std::string outDir = "./";         // каталог для сохранения выходного файла
+    std::string outFile = "code";        // имя выходного файла
+    bool isDebug = false;
+};
+
 // Класс, задающий компилятор модуля
 class ModuleCompiler {
     // Данные для хранения текущего местоположения в тексте

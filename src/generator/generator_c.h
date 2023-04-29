@@ -11,7 +11,7 @@ class GeneratorC: public Generator {
 public:
     GeneratorC() = default;
     ~GeneratorC() = default;
-    void GenerateModule(const Module& module, std::stringstream& hcode, std::stringstream& ccode) override;
+    void GenerateModule(const Module& module, std::string fileName, std::stringstream& hcode, std::stringstream& ccode) override;
     void GenerateModuleDeclaration(const DeclarationSequence& declaration, std::stringstream& hcode, std::stringstream& ccode);
     void GenerateDeclaration(const DeclarationSequence& declaration, std::stringstream& cur, bool needInit) override;
     void GenerateConstDeclaration(const ConstDeclaration& declaration, std::stringstream& hcode, std::stringstream& ccode) override;
@@ -68,6 +68,7 @@ private:
     std::unordered_map<std::string, bool> isParticalDeclaratedPointer;
     std::unordered_set<std::string> tmpRecords;
     std::unordered_map<VarContext*, std::string> changedVarNames;
+    std::unordered_set<std::string> declaratedPointerRecords; // Записи, которые уже были определены в указателях
 };
 
 #endif // GENERATOR_C_H

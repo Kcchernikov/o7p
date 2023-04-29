@@ -3,9 +3,11 @@
 #include "../generator/generator_c.h"
 
 #include <algorithm>
+#include <filesystem>
 #include <cstddef>
 #include <cstdio>
 #include <iostream>
+#include <fstream>
 #include <ostream>
 #include <sstream>
 #include <stdexcept>
@@ -53,25 +55,44 @@ namespace {
     };
 }
 
+bool IsDebug = false;
+
 // Начальные установки параметров компилятора и его запуск
-void Compile(const char* str) {
+void Compile(const char* str, const CompileOpts& opts) {
     ModuleCompiler mc(str);
     
-    std::cout << "***** MODULE *****" << std::endl;
-    std::cout << str << std::endl;
+    IsDebug = opts.isDebug;
+    if (IsDebug) {
+        std::cout << "***** MODULE *****" << std::endl;
+        std::cout << str << std::endl;
 
-    std::cout << "***** COMPILER STARTED *****" << std::endl;
+        std::cout << "***** COMPILER STARTED *****" << std::endl;
+    }
     Module module;
     if(mc.isModule(module) && mc.getErrCnt() == 0) {
         std::cout << "\e[1;32m" << "OK" << "\e[0m" << std::endl;
-        module.debugOut();
+        if (IsDebug) {
+            module.debugOut();
+        }
         GeneratorC generator;
         std::stringstream hcode, ccode;
-        generator.GenerateModule(module, hcode, ccode);
-        std::cout << "\e[1;32m ***** code.h *****" << std::endl;
-        std::cout << hcode.str() << std::endl;
-        std::cout << "\n\e[1;33m ***** code.c *****" << std::endl;
-        std::cout << ccode.str() << std::endl;
+        generator.GenerateModule(module, opts.outFile, hcode, ccode);
+        if (IsDebug) {
+            std::cout << "\e[1;32m ***** code.h *****" << std::endl;
+            std::cout << hcode.str() << std::endl;
+            std::cout << "\n\e[1;33m ***** code.c *****" << std::endl;
+            std::cout << ccode.str() << std::endl;
+        }
+        std::filesystem::path fullPath = opts.outDir;
+        std::ofstream hfile;
+        hfile.open(fullPath / (opts.outFile + ".h"));
+        hfile << hcode.str();
+        hfile.close();
+
+        std::ofstream cfile;
+        cfile.open(fullPath / (opts.outFile + ".c"));
+        cfile << ccode.str();
+        cfile.close();
     } else {
         std::cout << "\e[1;31m" << "FAIL" << "\e[0m" << std::endl;
     }
@@ -138,16 +159,6 @@ _3:
     if(isImportList(module)) {
         goto _4;
     }
-    // if(isDeclarationSequence()) {
-    //     goto _5;
-    // }
-    // if(isKeyWord("BEGIN")) {
-    //     goto _6;
-    // }
-    // if(isKeyWord("END")) {
-    //     goto _8;
-    // }
-    // return erMessage("ImportList or DeclarationSequence or StatementSequence or END expected");
 _4:
     DeclarationSequence* ds = nullptr;
     if(isDeclarationSequence(&ds, module.getReserved(), module.getImport())) {
@@ -158,13 +169,6 @@ _4:
     } else {
         declaration = oldDeclaration;
     }
-    // if(isKeyWord("BEGIN")) {
-    //     goto _6;
-    // }
-    // if(isKeyWord("END")) {
-    //     goto _8;
-    // }
-    // return erMessage("DeclarationSequence or StatementSequence or END expected");
 _5:
     StatementSequence* st = nullptr;
     if(isKeyWord("BEGIN")) {
@@ -1721,7 +1725,6 @@ _2:
     return erMessage("Key word OF expected");
 _3:
     if(isInteger(integer)) {
-        std::cout << "ADD CASE INT " << integer << std::endl;
         ctx1 = new ConstFactor(integer, declaration);
         goto _4;
     }
@@ -2615,7 +2618,9 @@ bool ModuleCompiler::isId(std::string& id) {
 bool ModuleCompiler::isIdent(std::string& ident) {
     if(isId(ident)) {
         /// Тестовый вывод (закомментировать после отработки)
-        testMessage("It's Identdef = " + lexValue);
+        if (IsDebug) {
+            testMessage("It's Identdef = " + lexValue);
+        }
         ignore();
         return true;
     }
@@ -2636,7 +2641,9 @@ bool ModuleCompiler::isIdentdef(Identdef& ident) {
             ident.access = false;
         }
         /// Тестовый вывод (закомментировать после отработки)
-        testMessage("It's Identdef = " + lexValue);
+        if (IsDebug) {
+            testMessage("It's Identdef = " + lexValue);
+        }
         ignore();
         return true;
     }
@@ -2674,7 +2681,6 @@ _1:
         goto _2;
     } else {
         NamedArtefact* art = declaration->getArtefactByName(ident1);
-        std::cout << ident1 << " " << (!art) << std::endl;
         if (!art) {
             if (createIfNotExists) {
                 declaration->incNotInit();
@@ -2773,7 +2779,9 @@ _2:
 _end:
     lexValue = tmpValue;
     /// Тестовый вывод (закомментировать после отработки)
-    testMessage("It's Qualident = " + lexValue);
+    if (IsDebug) {
+        testMessage("It's Qualident = " + lexValue);
+    }
     ignore();
     return true;
 }
@@ -2795,7 +2803,9 @@ bool ModuleCompiler::isKeyWord(const std::string& str) {
         if(tmpValue==str) {
             lexValue = tmpValue;
             /// Тестовый вывод (закомментировать после отработки)
-            testMessage("It's Key word = " + lexValue);
+            if (IsDebug) {
+                testMessage("It's Key word = " + lexValue);
+            }
             ignore();
             return true;
         }
@@ -3032,7 +3042,9 @@ _5:
 _end:
     lexValue = tmpValue;
     /// Тестовый вывод (закомментировать после отработки)
-    testMessage("It's Real = " + lexValue);
+    if (IsDebug) {
+        testMessage("It's Real = " + lexValue);
+    }
     ignore();
     std::istringstream strToDouble(lexValue);
     if (!(strToDouble >> real)) {
@@ -3092,7 +3104,9 @@ _end:
     /// И в этом случае сделать откат.
     lexValue = tmpValue;
     /// Тестовый вывод (закомментировать после отработки)
-    testMessage("It's Integer = " + lexValue);
+    if (IsDebug) {
+        testMessage("It's Integer = " + lexValue);
+    }
     ignore();
     if (lexValue.back() == 'H') {
         lexValue.pop_back();
@@ -3162,7 +3176,9 @@ _2:
 _end:
     lexValue = tmpValue;
     /// Тестовый вывод (закомментировать после отработки)
-    testMessage("It's String = " + lexValue);
+    if (IsDebug) {
+        testMessage("It's String = " + lexValue);
+    }
     ignore();
     str.swap(tmpValue);
     return true;
@@ -3220,7 +3236,9 @@ _1:
 _end:
     lexValue = tmpValue;
     /// Тестовый вывод (закомментировать после отработки)
-    testMessage("It's Comment = " + lexValue);
+    if (IsDebug) {
+        testMessage("It's Comment = " + lexValue);
+    }
     //ignore();
     return true;
 }
@@ -3255,7 +3273,9 @@ _0:
         goto _0;
     }
     /// Тестовый вывод (закомментировать после отработки)
-    testMessage("It's ignored. Next symbol = " + std::string{moduleStr[pos]});
+    if (IsDebug) {
+        testMessage("It's ignored. Next symbol = " + std::string{moduleStr[pos]});
+    }
 }
 
 // Проверка на принадлежность идентификатора одному из
@@ -3291,8 +3311,8 @@ bool ModuleCompiler::erMessage(std::string&& str) {
 void ModuleCompiler::testMessage(std::string str) {
     // Вывод сообщения об ошибке
     std::cout << "TEST ("
-              << line << ", "
-              << column << " {"
-              << pos << "}): ";
+            << line << ", "
+            << column << " {"
+            << pos << "}): ";
     std::cout << str << std::endl;
 }

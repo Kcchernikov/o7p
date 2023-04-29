@@ -154,7 +154,7 @@ public:
         DeclarationSequence* prev = nullptr,
         std::unordered_map<std::string, NamedArtefact*>* reserved = nullptr,
         std::unordered_map<std::string, DeclarationSequence*>* import = nullptr
-    ): prevDeclaration(prev), notInitCnt(0) {
+    ): prevDeclaration(prev), notInitCnt(0), reservedNamedArtefacts(nullptr), importArtefacts(nullptr) {
         if (prev) {
             if (!reserved) {
                 reservedNamedArtefacts = prev->reservedNamedArtefacts;

@@ -1,3 +1,8 @@
+#pragma once
+
+#ifndef BASELIB_H
+#define BASELIB_H
+
 #include <assert.h>
 // #include <stdio.h>
 #include <stddef.h>
@@ -17,3 +22,5 @@ BASE_REC* ConvertPtr(BASE_REC* ptr, const char* type) {
 typedef struct BASE_ARRAY {
     size_t lenght;
 } BASE_ARRAY;
+
+#endif // BASELIB_H

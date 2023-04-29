@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-void GeneratorC::GenerateModule(const Module& module, std::stringstream& hcode, std::stringstream& ccode) {
+void GeneratorC::GenerateModule(const Module& module, std::string fileName, std::stringstream& hcode, std::stringstream& ccode) {
     // Некоторым типам нужна инициализация. Например массивам и структурам. В декларации модуля 
     // инициализация будет происходить в функции "InitModule", в декларации структуры производить
     // инициализацию невозможно, поэтому она будет произведена, либо в декларации модуля, либо в декларации
@@ -19,7 +19,11 @@ void GeneratorC::GenerateModule(const Module& module, std::stringstream& hcode, 
     std::transform(lname.begin(), lname.end(), lname.begin(), ::tolower);
     hcode << "#ifndef " << uname << "\n#define "<< uname << "\n\n";
     hcode << "#include \"baselib.h\"\n\n";
-    ccode << "#include \"" << lname << ".h\"\n\n";
+    if (fileName.empty()) {
+        ccode << "#include \"" << lname << ".h\"\n\n";
+    } else {
+        ccode << "#include \"" << fileName << ".h\"\n\n";
+    }
     // Генерируем экспортируемые переменные в hcode, а остальное в ccode
     GenerateModuleDeclaration(module.declaration, hcode, ccode);
     hcode << "void InitModule" << module.moduleName << "();\n";
@@ -39,7 +43,9 @@ void GeneratorC::GenerateModuleDeclaration(const DeclarationSequence& declaratio
         for (auto kv : *declaration.importArtefacts) {
             hcode << "#include \"" << kv.first << "\"\n";
         }
-        hcode << "\n";
+        if (!declaration.importArtefacts->empty()) {
+            hcode << "\n";
+        }
     }
     for (auto kv : declaration.constNamedArtefacts) {
         kv.second->generate(this, hcode, ccode);
@@ -251,11 +257,19 @@ void GeneratorC::GenerateTypePointer(const TypePointerContext& type, std::string
     } else {
         if (!pointerName.empty()) {
             NamedArtefact na("rec_" + pointerName, type.recordType);
+            if (declaratedPointerRecords.count(na.getName()) != 0) {
+                cur << pointerName;
+                if (name != "") {
+                    cur << " " << name;
+                }
+                return;
+            }
             tmpRecords.insert(na.getName());
             type.recordType->setNamedArtefact(&na);
             type.recordType->generate(this, cur, "");
             type.recordType->setNamedArtefact(nullptr);
             tmpRecords.erase(na.getName());
+            declaratedPointerRecords.insert(na.getName());
         } else {
             type.recordType->generate(this, cur, "");
         }
@@ -375,7 +389,6 @@ void GeneratorC::GenerateProcedureBody(const Procedure& ctx, std::stringstream& 
     tabcnt++;
     GenerateDeclaration(*ctx.declaration, cur, true);
     for (auto* art : ctx.refs) {
-        std::cout << art->getName() << " " << art->getContext()->getTypeName() << std::endl;
         VarContext* var = (art->getContext()->getTypeName() == "VarContext"
             ? dynamic_cast<VarContext*>(art->getContext())
             : nullptr
@@ -395,6 +408,11 @@ void GeneratorC::GenerateProcedureBody(const Procedure& ctx, std::stringstream& 
     for (auto* art : ctx.refs) {
         std::string name = art->getName();
         art->setName(std::string(name.begin() + 8, --name.end()));
+    }
+    if (ctx.body.result != nullptr) {
+        GenerateTabs(cur); cur << "return ";
+        GenerateExpression(*ctx.body.result, cur);
+        cur << ";\n";
     }
     tabcnt--;
     GenerateTabs(cur);

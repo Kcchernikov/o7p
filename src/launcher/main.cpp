@@ -6,10 +6,12 @@
 #include <iostream>
 #include <fstream>
 
+#include "../compiler/parser.h"
+
 using namespace boost::program_options;
 
 // Начальные установки параметров компилятора и его запуск
-void Compile(const char* str);
+void Compile(const char* str, const CompileOpts& opts);
 
 void to_cout(const std::vector<std::string> &v)
 {
@@ -22,22 +24,28 @@ int main(int argc, const char *argv[])
     // Распознавание опций командной строки, обеспечивающих выбор
     // каталога проекта и компилируемой сущности (артефакта)
     std::string packageDir;     // каталог пакета содержащего компилируемую сущность
-    std::string fileName;         // компилируемая сущность
+    std::string fileName;       // компилируемая сущность
+    std::string outDir;         // каталог для сохранения выходного файла
+    std::string outFile;        // имя выходного файла
+    bool isDebug = false;
 
+    CompileOpts opts;
     try {
         options_description desc{"Options"};
         desc.add_options()
             ("help,h", "Help screen")
-//            ("package,p", value(&packageDir), "Package")
-/*            ("entity,e", value<std::vector<std::string>>()->
-                multitoken()->zero_tokens()->composing(), "Compiled entity");
-*/
-            ("file,f", value(&fileName), "File with module");
+            ("file,f", value(&fileName), "File with module")
+            ("output-dir,od", value(&outDir), "Output dir")
+            ("output-file,o", value(&outFile), "Output file's name")
+            ("debug,d", "Is debug mode");
 
         // Ограничение позиционных аргументов (возможны без опции) одним
         positional_options_description pos_desc;
         //pos_desc.add("phone", -1);
         pos_desc.add("file", 1);
+        pos_desc.add("output-dir", 2);
+        pos_desc.add("output-file", 3);
+        pos_desc.add("debug", 4);
 
         command_line_parser parser{argc, argv};
         parser.options(desc).positional(pos_desc).allow_unregistered();
@@ -47,6 +55,10 @@ int main(int argc, const char *argv[])
         store(parsed_options, vm);
         notify(vm);
 
+        // CompileOpts
+        opts.isDebug = isDebug;
+        opts.outDir = outDir;
+        opts.outFile = outFile;
         // Вывод подсказки
         if (vm.count("help")) {
             if(argc > 2) {
@@ -59,19 +71,17 @@ int main(int argc, const char *argv[])
     
         // Вывод непозиционных параметров (в нашем случае он пока один)
         if (vm.count("file")) {
-            /*
-            to_cout(vm["entity"].as<std::vector<std::string>>());
-            std::cout << "Entity is: " << vm["entity"].as<std::vector<std::string>>()[0] << "\n";
-            */
-            std::cout << "file is: " << fileName << "\n";
+            if (!vm.count("output-file")) {
+                std::size_t found = fileName.find_last_of("/\\");
+                opts.outFile = fileName.substr(found+1);
+                if (opts.outFile.size() > 3 && std::string(opts.outFile.end() - 3, opts.outFile.end()) == ".o7") {
+                    opts.outFile.resize(opts.outFile.size() - 3);
+                }
+            }
         }
-
-/*
-        if (vm.count("package")) {
-            std::cout << "Package is: " << packageDir << '\n';
-            //return 0;
+        if (vm.count("debug")) {
+            opts.isDebug = true;
         }
-*/
     }
     catch (const error &ex) {
         std::cerr << ex.what() << '\n';
@@ -95,9 +105,9 @@ int main(int argc, const char *argv[])
     ss << moduleStream.rdbuf();
     std::string o7module(ss.str()); // Модуль Оберона 7
     /// Тестовый вывод прочитанного артефакта
-    std::cout << o7module << std::endl;
+    // std::cout << o7module << std::endl;
 
-    Compile(o7module.c_str());
+    Compile(o7module.c_str(), opts);
     
     return 0;
 }
