@@ -311,10 +311,10 @@ class TypeArrayContext: public TypeContext {
     friend class GeneratorC;
 public:
     // Создание типа и определение его размера
-    TypeArrayContext(size_t len, TypeContext* v): length(len), valueType(v) {
+    TypeArrayContext(size_t len, TypeContext* v, bool allowEmpty = false): length(len), valueType(v) {
         if (v) {
             typeSize = v->getTypeSize() * len;
-        } else {
+        } else if (!allowEmpty) {
             std::cout << "\e[1;31m ERROR: VALUE TYPE IS EMPTY \e[0m" << std::endl;
         }
     }
@@ -333,7 +333,7 @@ public:
 
     bool isEqual(TypeArrayContext* arr) {
         if (length == 0 || arr->getLenght() == 0 || length == arr->getLenght()) {
-            if (valueType == arr->getElementType()) {
+            if (valueType == arr->getElementType() || valueType == nullptr || arr->getElementType() == nullptr) {
                 return true;
             }
             TypeArrayContext* value1 = (valueType->getTypeName() == "TypeArrayContext"
@@ -359,7 +359,7 @@ public:
     }
 private:
     size_t length; // значение 0 указывает о произвольной длине
-    TypeContext* valueType;    // указатель ссылается только на запись
+    TypeContext* valueType;    // указатель ссылается только на запись, nullptr означает любой подходящий тип
 };
 
 #endif // TYPE_H

@@ -314,6 +314,14 @@ void CheckRelation(TypeContext* type1, Relation rel, TypeContext* type2) {
         }
         return;
     }
+    if (type1->getTypeName() == "TypeNilContext" && type2->getTypeName() == "TypePointerContext"
+        || type1->getTypeName() == "TypeNilContext" && type2->getTypeName() == "TypeNilContext"
+        || type1->getTypeName() == "TypePointerContext" && type2->getTypeName() == "TypeNilContext") {
+        if (rel != Relation::EQUAL && rel != Relation::UNEQUAL) {
+            assert(false && "Only EQUAL ans UNEQUAL are avaliable for pointers");
+        }
+        return;
+    }
     TypeArrayContext* arr1 = (type1->getTypeName() == "TypeArrayContext"
         ? dynamic_cast<TypeArrayContext*>(type1)
         : nullptr

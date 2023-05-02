@@ -68,6 +68,25 @@ TypeContext* ValidateParameters(Designator* des, const std::vector<Expression*>&
     // Check params' type
     FormalParameters* formalParams = proc->getFormalParameters();
     size_t i = 0, sz = actualParams.size();
+    // Функция new проверяется отдельно и подставляется в момент генерации кода
+    if (des->getQualident().idents.size() == 1 && des->getQualident().idents[0] == "NEW") {
+        if (sz != 1) {
+            assert(false && "Actual params size must be one for 'NEW'");
+        }
+        TypeContext* actualType = actualParams[0]->getResultType();
+        if (actualType->getTypeName() != "TypePointerContext") {
+            assert(false && "Actual param for 'NEW' must be a pointer");
+        }
+        return nullptr;
+    }
+    if (formalParams == nullptr) {
+        if (sz != 0) {
+            assert(false && "Formal parameters and actual parameters must be the same length");
+        } else {
+            TypeContext* resultType = proc->getResultType();
+            return resultType;
+        }
+    }
     for (FPSection* sec : formalParams->getSections()) {
         for (size_t j = 0; j < sec->getParameters().size(); ++j) {
             if (i == sz) {

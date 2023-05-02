@@ -77,6 +77,7 @@ VAR
   pinMap: ARRAY nodes OF ARRAY nodes OF ARRAY nodes OF INTEGER;
   products : ARRAY productsCount OF Product;
   child: ParticleChild;
+  nd: Node1;
 
 PROCEDURE AddProductsToStock(VAR child2: ParticleChild; VAR pr: ARRAY OF Product);
 VAR i : INTEGER;
@@ -86,5 +87,6 @@ BEGIN
   END
 END AddProductsToStock;
 BEGIN
+  NEW(nd);
   AddProductsToStock(child, products);
 END Init.

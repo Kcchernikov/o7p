@@ -10,9 +10,8 @@ BEGIN
  value[i] := i;
  WHILE (i < len) & (value[i] # 10) DO
   value[i] := i;
-  i := i + 1;
+  INC(i);
   n := n + 1;
-  (* INC(I) *)
  END
 END Ask;
 

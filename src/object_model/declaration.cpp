@@ -81,8 +81,11 @@ public:
         const auto value1 = arg1->getValue();
         const auto value2 = arg2->getValue();
         if (value1.index() == 0 && value2.index() == 0) {
-            // TODO
-            //return new ConstFactor(std::get<0>(value1) >> value2, resultDecl);
+            size_t bit_cnt = (sizeof(long long) * 8);
+            size_t n = std::get<0>(value2) % bit_cnt;
+            long long x = std::get<0>(value1);
+            long long result = (x >> n) + ((((1ll << n) - 1) & x) << (bit_cnt - n));
+            return new ConstFactor(static_cast<long long>(result), resultDecl);
         } else {
             assert(false && "Incorect arguments for constant ROR function");  
         }
@@ -125,10 +128,20 @@ public:
 class ConstORD: public ConstProcedure {
 public:
     ConstFactor* execute(ConstFactor* arg, DeclarationSequence* resultDecl) const override {
-        // TODO 
         const auto value = arg->getValue();
         if (value.index() == 0) {
-            return new ConstFactor(static_cast<double>(std::get<0>(value)), resultDecl);
+            return new ConstFactor(static_cast<long long>(std::get<0>(value)), resultDecl);
+        } else if (value.index() == 2) {
+            return new ConstFactor(static_cast<long long>(std::get<2>(value)), resultDecl);
+        } else if (value.index() == 3) {
+            std::string val = std::get<3>(value);
+            if (val.size() == 1) {
+                return new ConstFactor(static_cast<long long>(val[0]), resultDecl);
+            } else {
+                assert(false && "Incorect argument for constant ORD function");
+            }
+        } else if (value.index() == 4) {
+            return new ConstFactor(static_cast<long long>(std::get<4>(value)), resultDecl);
         } else {
             assert(false && "Incorect argument for constant ORD function");  
         }
@@ -141,10 +154,9 @@ public:
 class ConstCHR: public ConstProcedure {
 public:
     ConstFactor* execute(ConstFactor* arg, DeclarationSequence* resultDecl) const override {
-        // TODO 
         const auto value = arg->getValue();
         if (value.index() == 0) {
-            return new ConstFactor(static_cast<long long>(char(std::get<0>(value))), resultDecl);
+            return new ConstFactor(static_cast<char>(std::get<0>(value)), resultDecl);
         } else {
             assert(false && "Incorect argument for constant CHR function");  
         }
@@ -165,28 +177,33 @@ ConstProcedure* CreateConstORD() {return new ConstORD();}
 ConstProcedure* CreateConstCHR() {return new ConstCHR();}
 
 ConstFactor::ConstFactor(long long val, DeclarationSequence* prevDecl):
-    value(val), 
-    prevDeclaration(prevDecl), 
+    value(val),
+    prevDeclaration(prevDecl),
     resultType(prevDeclaration->getArtefactByName("INTEGER")->getContext()->getType()) {
 }
 ConstFactor::ConstFactor(double val, DeclarationSequence* prevDecl):
-    value(val), 
-    resultType(prevDeclaration->getArtefactByName("REAL")->getContext()->getType()), 
+    value(val),
+    resultType(prevDeclaration->getArtefactByName("REAL")->getContext()->getType()),
     prevDeclaration(prevDecl) {
 }
 ConstFactor::ConstFactor(bool val, DeclarationSequence* prevDecl):
-    value(val), 
-    resultType(prevDeclaration->getArtefactByName("BOOLEAN")->getContext()->getType()), 
+    value(val),
+    resultType(prevDeclaration->getArtefactByName("BOOLEAN")->getContext()->getType()),
     prevDeclaration(prevDecl) {
 }
 ConstFactor::ConstFactor(std::string val, DeclarationSequence* prevDecl):
     value(val),
-    resultType(prevDeclaration->getArtefactByName("STRING")->getContext()->getType()), 
+    resultType(prevDeclaration->getArtefactByName("STRING")->getContext()->getType()),
     prevDeclaration(prevDecl) {
 }
 ConstFactor::ConstFactor(unsigned val, DeclarationSequence* prevDecl):
-        value(val), 
-        resultType(prevDeclaration->getArtefactByName("SET")->getContext()->getType()), 
+        value(val),
+        resultType(prevDeclaration->getArtefactByName("SET")->getContext()->getType()),
+        prevDeclaration(prevDecl) {
+}
+ConstFactor::ConstFactor(char val, DeclarationSequence* prevDecl):
+        value((long long)val),
+        resultType(prevDeclaration->getArtefactByName("CHAR")->getContext()->getType()),
         prevDeclaration(prevDecl) {
 }
 ConstFactor::ConstFactor(NIL val, DeclarationSequence* prevDecl):
@@ -511,7 +528,7 @@ ConstFactor* DeclarationSequence::getConstFactorByName(const std::string& ident)
 // Возвращает NamedArtefact по имени
 NamedArtefact* DeclarationSequence::getArtefactByName(const std::string& ident) {
     if (namedArtefacts.count(ident)) {
-        return namedArtefacts[ident];
+        return namedArtefacts[ident][0];
     } else if (prevDeclaration) {
         return prevDeclaration->getArtefactByName(ident);
     } else {
@@ -523,7 +540,7 @@ NamedArtefact* DeclarationSequence::getArtefactByName(const std::string& ident) 
  // Возвращает NamedArtefact по имени только из текущего скоупа
 NamedArtefact* DeclarationSequence::getCurrentArtefactByName(const std::string& ident) {
     if (namedArtefacts.count(ident)) {
-        return namedArtefacts[ident];
+        return namedArtefacts[ident][0];
     } else {
         return nullptr;
         // assert(false && "There was not declarated value with this name"); 

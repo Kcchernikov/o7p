@@ -4,7 +4,8 @@
 #define BASELIB_H
 
 #include <assert.h>
-// #include <stdio.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
 
@@ -22,5 +23,29 @@ BASE_REC* ConvertPtr(BASE_REC* ptr, const char* type) {
 typedef struct BASE_ARRAY {
     size_t lenght;
 } BASE_ARRAY;
+
+void INC(long long* v) {
+    (*v)++;
+}
+
+void DEC(long long* v) {
+    (*v)--;
+}
+
+void INCL(unsigned* v, long long x) {
+    (*v) |= (1ll << x);
+}
+
+void EXCL(unsigned* v, long long x) {
+    (*v) &= ~(1ll << x);
+}
+
+void ASSERT(short int b) {
+    assert(b);
+}
+
+long long LEN(BASE_ARRAY* v) {
+    return v->lenght;
+}
 
 #endif // BASELIB_H

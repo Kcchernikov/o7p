@@ -104,6 +104,7 @@ public:
     void addIndexSelector(const std::vector<Expression*> exps);
     void addAssertSelector(const Qualident& qual);
     void addPointerSelector();
+    Qualident getQualident() const;
 private:
     Qualident qualident;
     std::vector<Selector*> selectors;

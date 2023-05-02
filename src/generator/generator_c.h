@@ -58,6 +58,7 @@ private:
     void GenerateArrayBaseRef(const TypeArrayContext& arr, std::stringstream& cur, const std::string& name, std::vector<size_t>& lenghts);
     void InitArray(const TypeArrayContext& arr, std::stringstream& cur, const std::string& name, const std::string& base_name, std::vector<size_t>& indexes);
     void InitRecord(const TypeRecordContext& record, std::stringstream& cur, const std::string& name);
+    void GenerateNew(const Expression& exp, std::stringstream& cur);
     void GenerateTabs(std::stringstream& cur);
 private:
     const size_t tabsz = 4;

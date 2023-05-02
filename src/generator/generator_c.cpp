@@ -6,6 +6,7 @@
 #include <ostream>
 #include <sstream>
 #include <string>
+#include <sys/resource.h>
 #include <vector>
 
 void GeneratorC::GenerateModule(const Module& module, std::string fileName, std::stringstream& hcode, std::stringstream& ccode) {
@@ -440,6 +441,10 @@ void GeneratorC::GenerateAssigment(const Assigment& statement, std::stringstream
 }
 
 void GeneratorC::GenerateProcedureCall(const ProcedureCall& statement, std::stringstream& cur) {
+    if (statement.designator->qualident.idents.size() == 1 && statement.designator->qualident.idents[0] == "NEW") {
+        GenerateNew(*statement.params[0], cur);
+        return;
+    }
     // Переменные передаются по указателю, а остальное по значению
     GenerateDesignator(*statement.designator, cur);
     cur << "(";
@@ -929,6 +934,10 @@ void GeneratorC::GenerateSet(const Set& st, std::stringstream& cur) {
 }
 
 void GeneratorC::GenerateDesignatorWrapper(const DesignatorWrapper& st, std::stringstream& cur) {
+    if (st.designator->qualident.idents.size() == 1 && st.designator->qualident.idents[0] == "NEW") {
+        GenerateNew(*st.params->params[0], cur);
+        return;
+    }
     GenerateDesignator(*st.designator, cur);
     if (st.params) {
         cur << "(";
@@ -1035,7 +1044,13 @@ void GeneratorC::InitArray(const TypeArrayContext& arr, std::stringstream& cur, 
 
 void GeneratorC::InitRecord(const TypeRecordContext& record, std::stringstream& cur, const std::string& name) {
     // Из-за существования массивов внутри струтуры, инициализация не рекурсивная
-    GenerateTabs(cur); cur << name << ".__record_type = \"" << record.getNamedArtefact()->getName() << "\";\n";
+    GenerateTabs(cur); cur << name << ".__record_type = \"";
+    // Если это структура, объявленная не явно, а внутри указателя, присваем ей __record_type = ""
+    if (record.getNamedArtefact()) {
+        cur << record.getNamedArtefact()->getName() << "\";\n";
+    } else {
+        cur << "\";\n";
+    }
     DeclarationSequence declaration = record.declaration;
     for (auto art : declaration.order) {
         std::string insightName = art->getName();
@@ -1058,6 +1073,23 @@ void GeneratorC::InitRecord(const TypeRecordContext& record, std::stringstream& 
             }
         }
     }
+}
+
+void GeneratorC::GenerateNew(const Expression& exp, std::stringstream& cur) {
+    cur << "// NEW\n";
+    GenerateTabs(cur);
+    std::stringstream expCur;
+    GenerateExpression(exp, expCur);
+    cur << expCur.str();
+    cur << " = malloc(sizeof(";
+    TypeContext* resultType = exp.resultType;
+    if (resultType->getTypeName() != "TypePointerContext") {
+        assert(false && "'NEW' actual parameter must be a pointer");
+    }
+    TypePointerContext* p = dynamic_cast<TypePointerContext*>(resultType);
+    GenerateTypeRecord(*p->recordType, cur, "");
+    cur << "));\n";
+    InitRecord(*p->recordType, cur, "(*" + expCur.str() + ")");
 }
 
 void GeneratorC::GenerateTabs(std::stringstream& cur) {

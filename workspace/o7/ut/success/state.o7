@@ -18,6 +18,7 @@ VAR
   value: ARRAY len OF INTEGER;
   isInteger: BOOLEAN;
   p: P;
+  p0: P0;
 
 PROCEDURE Log2(VAR x: INTEGER): INTEGER;
  VAR y: INTEGER; (*assume x>0*)
@@ -43,6 +44,7 @@ BEGIN
     (* Do smt *)
  END;
 
+ i := LEN(value);
  i := 0;
  WHILE (i + 1 < len) & (value[i] # 10) DO
   value[i] := i;
@@ -58,6 +60,9 @@ BEGIN
  | 2: result := 6
  | 3: result := 8
  END;
+
+ NEW(p0);
+ p := p0;
 
  CASE p OF
   P0: p.b := 10 |

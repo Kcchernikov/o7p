@@ -98,6 +98,28 @@ void Compile(const char* str, const CompileOpts& opts) {
     }
 }
 
+void AddProcedureHeading(
+    DeclarationSequence* base,
+    std::string procName,
+    std::vector<std::pair<std::string, std::string>> args,
+    std::vector<bool> isVar,
+    TypeContext* resultType 
+) {
+    Procedure* proc = new Procedure(base);
+    FormalParameters* curFP = new FormalParameters();
+    for (size_t i = 0; i < args.size(); ++i) {
+        FPSection* fps = new FPSection();
+        fps->addParameter(args[i].first);
+        fps->setIsVar(isVar[i]);
+        fps->setType(base->getArtefactByName(args[i].second)->getContext()->getType());
+        curFP->addFPSection(fps);
+    }
+    curFP->setResultType(resultType);
+    proc->setFormalParameters(curFP);
+    proc->setIdent(Identdef{.name = procName, .access = false});
+    base->addNamedArtefact(new NamedArtefact(procName, proc), false);
+}
+
 // Конструктор, формирующий начальные установки параметров компилятора
 ModuleCompiler::ModuleCompiler(const char* str): moduleStr{str},
     pos{0}, line{1}, column{1}, errCnt{0}
@@ -112,6 +134,7 @@ ModuleCompiler::ModuleCompiler(const char* str): moduleStr{str},
     base->addNamedArtefact(new NamedArtefact("BYTE", new TypeByteContext(), false));
     base->addNamedArtefact(new NamedArtefact("SET", new TypeSetContext(), false));
     base->addNamedArtefact(new NamedArtefact("NIL", new TypeNilContext(), false));
+    base->addNamedArtefact(new NamedArtefact("BASE_ARRAY", new TypeArrayContext(0, nullptr, true), false));
     // Константные функции
     base->addConstNamedArtefact(new ConstDeclaration("ABS", new ConstFactor(CreateConstABS(), nullptr), false));
     base->addConstNamedArtefact(new ConstDeclaration("ODD", new ConstFactor(CreateConstODD(), nullptr), false));
@@ -123,8 +146,22 @@ ModuleCompiler::ModuleCompiler(const char* str): moduleStr{str},
     base->addConstNamedArtefact(new ConstDeclaration("ORD", new ConstFactor(CreateConstORD(), nullptr), false));
     base->addConstNamedArtefact(new ConstDeclaration("CHR", new ConstFactor(CreateConstCHR(), nullptr), false));
 
-    // TODO Добавить оставшиеся неконстантные функции, такие как INC, LEN, NEW
-    // base->addNamedArtefact(new NamedArtefact("LEN", new Procedure(base, new ProcedureBody())));
+    // TODO Добавить оставшиеся неконстантные функции, такие как INC(v, n), ABS(x), ODD(x)
+    // TODO Обработать функции с одинаковыми названиями, но с разным числом аргументов
+    // Неконстантные функции
+    AddProcedureHeading(base, "INC", {{"v", "INTEGER"}}, {1}, nullptr);
+    AddProcedureHeading(base, "INC", {{"v", "INTEGER"}, {"n", "INTEGER"}}, {1, 0}, nullptr);
+    AddProcedureHeading(base, "DEC", {{"v", "INTEGER"}}, {1}, nullptr);
+    AddProcedureHeading(base, "DEC", {{"v", "INTEGER"}, {"n", "INTEGER"}}, {1, 0}, nullptr);
+    AddProcedureHeading(base, "INCL", {{"v", "SET"}, {"x", "INTEGER"}}, {1, 0}, nullptr);
+    AddProcedureHeading(base, "EXCL", {{"v", "SET"}, {"x", "INTEGER"}}, {1, 0}, nullptr);
+    AddProcedureHeading(base, "NEW", {{"v", "INTEGER"}}, {0}, nullptr); // Здесь параметр имеет тип INTEGER,
+    // потому что в функцию может быть передан любой указатель
+    AddProcedureHeading(base, "LEN", {{"v", "BASE_ARRAY"}}, {0}, base->getArtefactByName("INTEGER")->getContext()->getType());
+    AddProcedureHeading(base, "ASSERT", {{"b", "BOOLEAN"}}, {0}, nullptr);
+    AddProcedureHeading(base, "PACK", {{"x", "REAL"}, {"n", "INTEGER"}}, {1, 0}, nullptr); // TODO
+    AddProcedureHeading(base, "UNPACK", {{"x", "REAL"}, {"n", "INTEGER"}}, {1, 0}, nullptr); // TODO
+
     declaration = base;
 }
 

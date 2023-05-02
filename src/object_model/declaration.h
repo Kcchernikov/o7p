@@ -77,6 +77,7 @@ public:
     ConstFactor(std::string val, DeclarationSequence* prevDecl);
     ConstFactor(unsigned val, DeclarationSequence* prevDecl);
     ConstFactor(NIL val, DeclarationSequence* prevDecl);
+    ConstFactor(char val, DeclarationSequence* prevDecl);
     ConstFactor(ConstProcedure* val, DeclarationSequence* prevDecl);
     ConstFactor(ConstFactor* factor);
 
@@ -173,7 +174,7 @@ public:
         std::vector<NamedArtefact*> result;
         result.reserve(namedArtefacts.size());
         for (auto kv : namedArtefacts) {
-            result.push_back(kv.second);
+            result.push_back(kv.second[0]);
         }
         return result;
     }
@@ -187,17 +188,17 @@ public:
         return result;
     }
 
-    void addNamedArtefact(NamedArtefact* art) {
+    void addNamedArtefact(NamedArtefact* art, bool checkExists = true) {
         if (!art) {
             assert(false && "Empty artefact");
         }
         if (reservedNamedArtefacts && reservedNamedArtefacts->count(art->getName())) {
             assert(false && "This name is reserved");
         }
-        if (namedArtefacts.count(art->getName()) || constNamedArtefacts.count(art->getName())) {
+        if (checkExists && (namedArtefacts.count(art->getName()) || constNamedArtefacts.count(art->getName()))) {
             assert(false && "Var with this name already exists");
         }
-        namedArtefacts[art->getName()] = art;
+        namedArtefacts[art->getName()].push_back(art);
         order.push_back(art);
     }
 
@@ -247,7 +248,7 @@ public:
     void debugOut(size_t tabcnt = 0);
 
 private:
-    std::unordered_map<std::string, NamedArtefact*> namedArtefacts;
+    std::unordered_map<std::string, std::vector<NamedArtefact*>> namedArtefacts;
     std::unordered_set<std::string> hideAertefacts;
     std::unordered_map<std::string, ConstDeclaration*> constNamedArtefacts;
     std::unordered_map<std::string, NamedArtefact*>* reservedNamedArtefacts;
