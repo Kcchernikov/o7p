@@ -2,6 +2,7 @@
 #define IMPORT_H
 
 #include "context.h"
+#include <cassert>
 
 // Класс, определяющий контекст импорта
 class ImportContext: public Context {

@@ -2,6 +2,8 @@
 #include "expression.h"
 #include "procedure.h"
 
+#include <cassert>
+
 bool IsComparable(TypeContext* formalType, TypeContext* actualType) {
     if (actualType == formalType) {
         return true;

@@ -1,6 +1,7 @@
 #include "designator.h"
 #include "../generator/generator.h"
 
+#include <cassert>
 #include <iostream>
 
 TypeContext* Selector::getType() {

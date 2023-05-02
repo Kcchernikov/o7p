@@ -1,6 +1,7 @@
 #include "generator_c.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <optional>
 #include <ostream>
