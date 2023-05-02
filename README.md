@@ -16,4 +16,4 @@
 
 ## Пример запуска
 
-`./o7p  --file ../o7p/workspace/o7/ut/success/base_statement.o7 --output-dir ../o7p/workspace/C/ut/success`
+`./o7p  --file ../o7p/workspace/o7/ut/success/base_statement.o7 --output-dir ../o7p/workspace/c/ut/success`
