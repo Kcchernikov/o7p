@@ -76,23 +76,63 @@ void Compile(const char* str, const CompileOpts& opts) {
         }
         GeneratorC generator;
         std::stringstream hcode, ccode;
-        generator.GenerateModule(module, opts.outFile, hcode, ccode);
+        std::filesystem::path fullPath = opts.workspaceDir;
+        std::filesystem::path absolutePath = std::filesystem::canonical(fullPath);
+        generator.GenerateModule(
+            module,
+            absolutePath / "h" / opts.fileName,
+            std::filesystem::canonical("../o7p/src/lib/baselib.h"),
+            hcode,
+            ccode
+        );
         if (IsDebug) {
             std::cout << "\e[1;32m ***** code.h *****" << std::endl;
             std::cout << hcode.str() << std::endl;
             std::cout << "\n\e[1;33m ***** code.c *****" << std::endl;
             std::cout << ccode.str() << std::endl;
         }
-        std::filesystem::path fullPath = opts.outDir;
         std::ofstream hfile;
-        hfile.open(fullPath / (opts.outFile + ".h"));
+        std::size_t found = opts.fileName.find_last_of("/\\");
+        std::string fileDir = opts.fileName.substr(0, found+1);
+        std::string fileName = opts.fileName.substr(found+1);
+
+        std::filesystem::create_directories(fullPath / "h" / fileDir);
+        std::filesystem::create_directories(fullPath / "c" / fileDir);
+        std::filesystem::create_directories(fullPath / "main-c" / fileDir);
+        std::filesystem::create_directories(fullPath / "prj" / opts.fileName);
+        std::filesystem::create_directories(fullPath / "out" / fileDir);
+        hfile.open(fullPath / "h" / (opts.fileName + ".h"));
         hfile << hcode.str();
         hfile.close();
 
         std::ofstream cfile;
-        cfile.open(fullPath / (opts.outFile + ".c"));
+        cfile.open(fullPath / "c" / (opts.fileName + ".c"));
         cfile << ccode.str();
         cfile.close();
+
+        // Генерация main-c файла
+        std::ofstream mainc;
+        mainc.open(fullPath / "main-c" / fileDir / ("main-" + fileName + ".c"));
+        mainc << "#include " << absolutePath / "h" / (opts.fileName + ".h") << "\n\n";
+        mainc << "int main() {\n";
+        mainc << "    InitModule" << module.getModuleName() << "();\n";
+        mainc << "}\n";
+        mainc.close();
+
+        // Генерация CMakeLists.txt
+        std::ofstream cmakeLists;
+        cmakeLists.open(fullPath / "prj" / opts.fileName / "CMakeLists.txt");
+        cmakeLists << "cmake_minimum_required(VERSION 3.5)\n\n";
+        cmakeLists << "project(" << fileName << ")\n\n";
+        cmakeLists << "set(SOURCE_EXE " << (absolutePath / "main-c" / fileDir / ("main-" + fileName + ".c")).c_str() << ")\n";
+        cmakeLists << "set(BASE_LIB " << std::filesystem::canonical("../o7p/src/lib/baselib.c").c_str() << ")\n";
+        cmakeLists << "set(SOURCE_LIB " << (absolutePath / "c" / (opts.fileName + ".c")).c_str() << ")\n";
+        cmakeLists << "set(CMAKE_RUNTIME_OUTPUT_DIRECTORY " << (absolutePath / "out" / fileDir).c_str() << ")\n\n";
+        cmakeLists << "add_library(" << fileName << "-lib STATIC ${SOURCE_LIB})\n";
+        cmakeLists << "add_library(baselib STATIC ${BASE_LIB})\n";
+        cmakeLists << "add_executable(" << fileName << " ${SOURCE_EXE})\n";
+        cmakeLists << "target_link_libraries(" << fileName << " baselib " << fileName << "-lib)\n";
+        cmakeLists.close();
     } else {
         std::cout << "\e[1;31m" << "FAIL" << "\e[0m" << std::endl;
     }

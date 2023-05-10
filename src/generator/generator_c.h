@@ -11,7 +11,7 @@ class GeneratorC: public Generator {
 public:
     GeneratorC() = default;
     ~GeneratorC() = default;
-    void GenerateModule(const Module& module, std::string fileName, std::stringstream& hcode, std::stringstream& ccode) override;
+    void GenerateModule(const Module& module, std::string fileName, std::string baselibPath, std::stringstream& hcode, std::stringstream& ccode) override;
     void GenerateModuleDeclaration(const DeclarationSequence& declaration, std::stringstream& hcode, std::stringstream& ccode);
     void GenerateDeclaration(const DeclarationSequence& declaration, std::stringstream& cur, bool needInit) override;
     void GenerateConstDeclaration(const ConstDeclaration& declaration, std::stringstream& hcode, std::stringstream& ccode) override;

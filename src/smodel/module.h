@@ -44,6 +44,7 @@ public:
 
     // Установка имени модуля
     void setModuleName(const std::string& mn) { moduleName = mn;}
+    std::string getModuleName() { return moduleName;}
     // Установка DeclarationSequence
     void setDeclarationSequence(const DeclarationSequence* ds);
     // Установка DeclarationSequence

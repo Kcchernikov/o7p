@@ -5,6 +5,7 @@
 //#include <iterator>
 #include <iostream>
 #include <fstream>
+#include <filesystem>
 
 #include "../compiler/parser.h"
 
@@ -23,10 +24,8 @@ int main(int argc, const char *argv[])
 {
     // Распознавание опций командной строки, обеспечивающих выбор
     // каталога проекта и компилируемой сущности (артефакта)
-    std::string packageDir;     // каталог пакета содержащего компилируемую сущность
-    std::string fileName;       // компилируемая сущность
-    std::string outDir;         // каталог для сохранения выходного файла
-    std::string outFile;        // имя выходного файла
+    std::string workspaceDir = "../o7p/workspace";      // катало workspace
+    std::string fileName;                               // компилируемая сущность
     bool isDebug = false;
 
     CompileOpts opts;
@@ -34,17 +33,15 @@ int main(int argc, const char *argv[])
         options_description desc{"Options"};
         desc.add_options()
             ("help,h", "Help screen")
-            ("file,f", value(&fileName), "File with module")
-            ("output-dir,od", value(&outDir), "Output dir")
-            ("output-file,o", value(&outFile), "Output file's name")
+            ("workspace-dir,w", value(&workspaceDir), "Workspace dir, default \"../o7p/workspace\"")
+            ("file-name,f", value(&fileName), "Module file path starting in workspace/o7, allowed without '.o7'")
             ("debug,d", "Is debug mode");
 
         // Ограничение позиционных аргументов (возможны без опции) одним
         positional_options_description pos_desc;
         //pos_desc.add("phone", -1);
-        pos_desc.add("file", 1);
-        pos_desc.add("output-dir", 2);
-        pos_desc.add("output-file", 3);
+        pos_desc.add("workspace-dir", 1);
+        pos_desc.add("file-name", 2);
         pos_desc.add("debug", 4);
 
         command_line_parser parser{argc, argv};
@@ -57,8 +54,8 @@ int main(int argc, const char *argv[])
 
         // CompileOpts
         opts.isDebug = isDebug;
-        opts.outDir = outDir;
-        opts.outFile = outFile;
+        opts.workspaceDir = workspaceDir;
+        opts.fileName = fileName;
         // Вывод подсказки
         if (vm.count("help")) {
             if(argc > 2) {
@@ -70,13 +67,9 @@ int main(int argc, const char *argv[])
         }
     
         // Вывод непозиционных параметров (в нашем случае он пока один)
-        if (vm.count("file")) {
-            if (!vm.count("output-file")) {
-                std::size_t found = fileName.find_last_of("/\\");
-                opts.outFile = fileName.substr(found+1);
-                if (opts.outFile.size() > 3 && std::string(opts.outFile.end() - 3, opts.outFile.end()) == ".o7") {
-                    opts.outFile.resize(opts.outFile.size() - 3);
-                }
+        if (vm.count("file-name")) {
+            if (opts.fileName.size() > 3 && std::string(opts.fileName.end() - 3, opts.fileName.end()) == ".o7") {
+                opts.fileName.resize(opts.fileName.size() - 3);
             }
         }
         if (vm.count("debug")) {
@@ -93,12 +86,13 @@ int main(int argc, const char *argv[])
     //std::string exportName{packageDir + "/export"};
     //std::string artefactName{packageDir + "/smile/" + entityName};
     //std::string rigName{packageDir + "/rig/" + entityName};
-    std::string compiledFile{fileName};
     
     // Компилируемый модуль читается из файла в строку
-    std::ifstream moduleStream(fileName);
+    std::filesystem::path fullPath = opts.workspaceDir;
+    std::ifstream moduleStream(fullPath / "o7" / (opts.fileName + ".o7"));
     if(moduleStream.fail()) {
-        std::cout << "Module" << fileName << " isn't accesible" << std::endl;
+        std::cout << "Module " << opts.fileName << " isn't accesible" << std::endl;
+        std::cout << "Full path: " << fullPath / "o7" / (opts.fileName + ".o7");
         return 1;
     }
     std::stringstream ss;

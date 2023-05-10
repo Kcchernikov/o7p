@@ -22,8 +22,8 @@ struct Location {
 };
 
 struct CompileOpts {
-    std::string outDir = "./";         // каталог для сохранения выходного файла
-    std::string outFile = "code";        // имя выходного файла
+    std::string workspaceDir = "../o7p/workspace";         // каталог для сохранения выходного файла
+    std::string fileName;                                  // имя выходного файла
     bool isDebug = false;
 };
 

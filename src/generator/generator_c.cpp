@@ -10,7 +10,7 @@
 #include <sys/resource.h>
 #include <vector>
 
-void GeneratorC::GenerateModule(const Module& module, std::string fileName, std::stringstream& hcode, std::stringstream& ccode) {
+void GeneratorC::GenerateModule(const Module& module, std::string fileName, std::string baselibPath, std::stringstream& hcode, std::stringstream& ccode) {
     // Некоторым типам нужна инициализация. Например массивам и структурам. В декларации модуля 
     // инициализация будет происходить в функции "InitModule", в декларации структуры производить
     // инициализацию невозможно, поэтому она будет произведена, либо в декларации модуля, либо в декларации
@@ -20,7 +20,12 @@ void GeneratorC::GenerateModule(const Module& module, std::string fileName, std:
     std::transform(uname.begin(), uname.end(), uname.begin(), ::toupper);
     std::transform(lname.begin(), lname.end(), lname.begin(), ::tolower);
     hcode << "#ifndef " << uname << "\n#define "<< uname << "\n\n";
-    hcode << "#include \"baselib.h\"\n\n";
+    if (baselibPath.empty()) {
+        hcode << "#include \"baselib.h\"\n\n";
+    } else {
+        hcode << "#include \"" << baselibPath << "\"\n\n";
+    }
+
     if (fileName.empty()) {
         ccode << "#include \"" << lname << ".h\"\n\n";
     } else {
