@@ -16,8 +16,8 @@
 
 `./o7p -f ut/success/assigment`
 
-После данного запуска в `workspace` создадутся директории `h/ut/success`, `c/ut/success`, `main-c/ut/success`, `prj/ut/success/assigment`, `out/ut/success`.
+После данного запуска в `workspace` создадутся директории `h/ut/success`, `c/ut/success`, `main-c/ut/success`, `def/ut/success`, `prj/ut/success/assigment`, `out/ut/success`.
 
-В `h/ut/success` будет создан файл `assigment.h`, в `c/ut/success` будет создан `assigment.c`, в `main-c/ut/success` будет создан `main-assigment.c`, содержащий функцию `main()`, запускающую инициализацию модуля, в `prj/ut/success/assigment` будет создан `CMakeLists.txt`, описывающий проект из исполняемого файла `main-assigment.c` и библиотек `baselib` и `assigment`. 
+В `h/ut/success` будет создан файл `assigment.h`, в `c/ut/success` будет создан `assigment.c`, в `main-c/ut/success` будет создан `main-assigment.c`, содержащий функцию `main()`, запускающую инициализацию модуля, в `def/ut/success` будет создан `assigment.def`, содержащий объектную модель экспортируемой из модуля информации, в `prj/ut/success/assigment` будет создан `CMakeLists.txt`, описывающий проект из исполняемого файла `main-assigment.c` и библиотек `baselib` и `assigment`. 
 
 Для того, чтобы собрать проект на С достаточно из директории `prj/ut/success/assigment` запустить команду `cmake ./ && make` и в директории `out/ut/success` появится исполняемый файл `assigment`
