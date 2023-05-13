@@ -118,7 +118,7 @@ public:
 class TypeStringContext: public TypeContext {
 public:
     // Создание типа и определение его размера
-    TypeStringContext() {
+    TypeStringContext(size_t len = 0): length(len) {
         typeSize = sizeof(char);
     }
 

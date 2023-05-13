@@ -27,6 +27,11 @@ public:
     // Получение указателя на объект с именем артефакта
     NamedArtefact* getNamedArtefact() const { return nameOfArtefact; }
     // Установка указателя на именованный артефакт
+
+    bool getIsImported() const {return isImported;}
+
+    void setIsImported(bool isImp) {isImported = isImp;}
+
     void setNamedArtefact(NamedArtefact* na) {nameOfArtefact = na;}
 
     virtual std::string getTypeName() const {
@@ -34,6 +39,7 @@ public:
     }
 private:
     NamedArtefact* nameOfArtefact;
+    bool isImported = false;     // Был ли импортирован
 };
 
 // Класс, задающий именованный контекст

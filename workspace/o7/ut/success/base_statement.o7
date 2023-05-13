@@ -11,6 +11,8 @@ BEGIN
  WHILE (i < len) & (value[i] # 10) DO
   value[i] := i;
   INC(i);
+  DEC(i, 1);
+  INC(i, 1);
   n := n + 1;
  END
 END Ask;

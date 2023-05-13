@@ -36,6 +36,9 @@ void GeneratorC::GenerateModule(const Module& module, std::string fileName, std:
     hcode << "void InitModule" << module.moduleName << "();\n";
     ccode << "void InitModule" << module.moduleName << "() {\n";
     tabcnt++;
+    for (auto imp : import) {
+        GenerateTabs(ccode); ccode << "InitModule" << imp << "();\n";
+    }
     GenerateInitialisation(module.declaration, ccode);
     if (module.statement) {
         GenerateStatement(*module.statement, ccode);
@@ -48,7 +51,8 @@ void GeneratorC::GenerateModule(const Module& module, std::string fileName, std:
 void GeneratorC::GenerateModuleDeclaration(const DeclarationSequence& declaration, std::stringstream& hcode, std::stringstream& ccode) {
     if (declaration.importArtefacts) {
         for (auto kv : *declaration.importArtefacts) {
-            hcode << "#include \"" << kv.first << "\"\n";
+            hcode << "#include \"" << kv.first << ".h\"\n";
+            import.insert(kv.first);
         }
         if (!declaration.importArtefacts->empty()) {
             hcode << "\n";
@@ -128,16 +132,19 @@ void GeneratorC::GenerateDeclaration(const DeclarationSequence& declaration, std
 }
 
 void GeneratorC::GenerateConstDeclaration(const ConstDeclaration& declaration, std::stringstream& hcode, std::stringstream& ccode) {
-    std::stringstream cur;
-    cur << "const ";
-    declaration.value->getType()->generate(this, cur, declaration.name);
-    cur << " = ";
-    declaration.value->generate(this, cur, "");
-    cur << ";\n";
+    std::stringstream ccur;
+    std::stringstream hcur;
+    hcur << "const ";
+    declaration.value->getType()->generate(this, hcur, declaration.name);
+    ccur << hcur.str();
+    ccur << " = ";
+    declaration.value->generate(this, ccur, "");
+    ccur << ";\n";
+    hcur << ";\n";
     if (declaration.access) {
-        hcode << cur.str();
+        hcode << hcur.str();
     } else {
-        ccode << cur.str();
+        ccode << ccur.str();
     }
 }
 
@@ -264,7 +271,7 @@ void GeneratorC::GenerateTypePointer(const TypePointerContext& type, std::string
     } else {
         if (!pointerName.empty()) {
             NamedArtefact na("rec_" + pointerName, type.recordType);
-            if (declaratedPointerRecords.count(na.getName()) != 0) {
+            if (declaratedPointerRecords.count(na.getName()) != 0 || type.getIsImported()) {
                 cur << pointerName;
                 if (name != "") {
                     cur << " " << name;
@@ -690,7 +697,7 @@ void GeneratorC::GenerateDesignator(const Designator& designator, std::stringstr
     std::stringstream tmp;
     if (designator.qualident.idents.size() == 1 && designator.qualident.varArtefact) {
         tmp << designator.qualident.varArtefact->getName();
-    } else {
+    } else if (!designator.qualident.isImport) {
         VarContext* var = designator.qualident.firstVar;
         if (var != nullptr && changedVarNames.count(var) != 0) {
             tmp.clear();
@@ -700,10 +707,12 @@ void GeneratorC::GenerateDesignator(const Designator& designator, std::stringstr
         }
     }
     for (size_t i = 1; i < designator.qualident.idents.size(); ++i) { // максимум 2
-        if (designator.qualident.isFirstPointer) {
-            tmp << "->";
-        } else {
-            tmp << ".";
+        if (!designator.qualident.isImport) {
+            if (designator.qualident.isFirstPointer) {
+                tmp << "->";
+            } else {
+                tmp << ".";
+            }
         }
         tmp << designator.qualident.idents[i];
         if (designator.qualident.varArtefact != nullptr) {

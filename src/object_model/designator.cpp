@@ -184,6 +184,10 @@ Qualident Designator::getQualident() const {
     return qualident;
 }
 
+Qualident& Designator::getQualident() {
+    return qualident;
+}
+
 void Designator::debugOut(size_t tabcnt) {
     std::cout << "DESIGNATOR ";
     std::cout << "Qualident " << qualident.idents[0];

@@ -1,7 +1,5 @@
 MODULE Init;
 
-IMPORT Log, Draw;
-
 CONST len = 256;
 
 TYPE R = RECORD a: INTEGER END ;

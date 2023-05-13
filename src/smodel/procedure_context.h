@@ -77,7 +77,7 @@ public:
     virtual void generate(class Generator* generator, std::stringstream& cur, const std::string& name);
 
     virtual std::string getTypeName() const {
-        return "TypeArrayContext";
+        return "ProcContext";
     }
 protected:
     DeclarationSequence* declaration;

@@ -198,6 +198,15 @@ public:
         if (checkExists && (namedArtefacts.count(art->getName()) || constNamedArtefacts.count(art->getName()))) {
             assert(false && "Var with this name already exists");
         }
+        if (importArtefacts) {
+            for (auto p : *importArtefacts) {
+                if (p.second) {
+                    if (p.second->getArtefactByName(art->getName()) != nullptr || p.second->getConstFactorByName(art->getName()) != nullptr) {
+                        assert(false && "Var with this name already exists in imported modules");
+                    }
+                }
+            }
+        }
         namedArtefacts[art->getName()].push_back(art);
         order.push_back(art);
     }
@@ -211,6 +220,15 @@ public:
         }
         if (namedArtefacts.count(cd->getName()) || constNamedArtefacts.count(cd->getName())) {
             assert(false && "Const var with this name already exists");
+        }
+        if (importArtefacts) {
+            for (auto p : *importArtefacts) {
+                if (p.second) {
+                    if (p.second->getArtefactByName(cd->getName()) != nullptr || p.second->getConstFactorByName(cd->getName()) != nullptr) {
+                        assert(false && "Var with this name already exists in imported modules");
+                    }
+                }
+            }
         }
         constNamedArtefacts[cd->getName()] = cd;
     }
@@ -231,6 +249,8 @@ public:
     // Возвращает NamedArtefact по имени только из текущего скоупа
     NamedArtefact* getCurrentArtefactByName(const std::string& ident);
 
+    void setImport(std::unordered_map<std::string, DeclarationSequence*>* import);
+
     // Увеличивает число неинициализированных объектов
     void incNotInit() {
         notInitCnt++;
@@ -246,6 +266,8 @@ public:
     }
 
     void debugOut(size_t tabcnt = 0);
+
+    friend std::string ExportModule(DeclarationSequence* declaration);
 
 private:
     std::unordered_map<std::string, std::vector<NamedArtefact*>> namedArtefacts;

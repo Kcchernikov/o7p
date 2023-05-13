@@ -1,0 +1,34 @@
+MODULE ModuleB;
+
+IMPORT A := ModuleA;
+
+CONST c = CHR(0);
+
+(*TYPE
+  AnyRecGrandSon* = RECORD (A.AnyRecSon)
+    n : INTEGER
+  END;*)
+
+VAR 
+  (*inSetB: BOOLEAN;
+  varSetB: SET;*)
+  varInt: A.Int;
+  (*grandSon: AnyRecGrandSon;
+  Son: A.AnyRecSon;
+  nodeA : A.Node1;
+  nodeB : A.Node1;
+  arr : A.array;*)
+
+BEGIN
+ (*varSetB := A.constSet;
+ varInt := 0;
+ varInt := A.varArr[6];
+ INC(varInt);
+ grandSon.m := 10;
+ NEW(nodeA);
+ NEW(nodeB);
+ nodeA.next := nodeB;
+ arr[1, 2] := c;*)
+ A.Ask(varInt);
+
+END ModuleB.

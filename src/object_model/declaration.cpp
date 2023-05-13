@@ -547,6 +547,10 @@ NamedArtefact* DeclarationSequence::getCurrentArtefactByName(const std::string& 
     }
 }
 
+void DeclarationSequence::setImport(std::unordered_map<std::string, DeclarationSequence*>* import) {
+    importArtefacts = import;
+}
+
 void DeclarationSequence::debugOut(size_t tabcnt) {
     COUT(tabcnt) << "Reserved artefats: " << std::endl;
     COUT(tabcnt) << "------------------ " << std::endl;

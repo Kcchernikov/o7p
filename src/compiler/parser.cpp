@@ -1,9 +1,9 @@
 //#include "error.h"
 #include "parser.h"
 #include "../generator/generator_c.h"
+#include "../object_model/saveload.h"
 
 #include <algorithm>
-#include <filesystem>
 #include <cstddef>
 #include <cstdio>
 #include <iostream>
@@ -13,6 +13,7 @@
 #include <stdexcept>
 #include <string>
 #include <strings.h>
+#include <unordered_map>
 #include <vector>
 
 // Список ключевых и зарезервированных слов,
@@ -68,6 +69,14 @@ void Compile(const char* str, const CompileOpts& opts) {
 
         std::cout << "***** COMPILER STARTED *****" << std::endl;
     }
+    std::filesystem::path fullPath = opts.workspaceDir;
+    std::filesystem::path absolutePath = std::filesystem::canonical(fullPath);
+    std::size_t found = opts.fileName.find_last_of("/\\");
+    std::string fileDir = opts.fileName.substr(0, found+1);
+    std::string fileName = opts.fileName.substr(found+1);
+    std::filesystem::create_directories(fullPath / "def" / fileDir);
+    mc.setDefPath(fullPath / "def" / fileDir);
+
     Module module;
     if(mc.isModule(module) && mc.getErrCnt() == 0) {
         std::cout << "\e[1;32m" << "OK" << "\e[0m" << std::endl;
@@ -76,8 +85,6 @@ void Compile(const char* str, const CompileOpts& opts) {
         }
         GeneratorC generator;
         std::stringstream hcode, ccode;
-        std::filesystem::path fullPath = opts.workspaceDir;
-        std::filesystem::path absolutePath = std::filesystem::canonical(fullPath);
         generator.GenerateModule(
             module,
             absolutePath / "h" / opts.fileName,
@@ -92,14 +99,12 @@ void Compile(const char* str, const CompileOpts& opts) {
             std::cout << ccode.str() << std::endl;
         }
         std::ofstream hfile;
-        std::size_t found = opts.fileName.find_last_of("/\\");
-        std::string fileDir = opts.fileName.substr(0, found+1);
-        std::string fileName = opts.fileName.substr(found+1);
 
         std::filesystem::create_directories(fullPath / "h" / fileDir);
         std::filesystem::create_directories(fullPath / "c" / fileDir);
         std::filesystem::create_directories(fullPath / "main-c" / fileDir);
         std::filesystem::create_directories(fullPath / "prj" / opts.fileName);
+        std::filesystem::create_directories(fullPath / "def" / fileDir);
         std::filesystem::create_directories(fullPath / "out" / fileDir);
         hfile.open(fullPath / "h" / (opts.fileName + ".h"));
         hfile << hcode.str();
@@ -129,10 +134,26 @@ void Compile(const char* str, const CompileOpts& opts) {
         cmakeLists << "set(SOURCE_LIB " << (absolutePath / "c" / (opts.fileName + ".c")).c_str() << ")\n";
         cmakeLists << "set(CMAKE_RUNTIME_OUTPUT_DIRECTORY " << (absolutePath / "out" / fileDir).c_str() << ")\n\n";
         cmakeLists << "add_library(" << fileName << "-lib STATIC ${SOURCE_LIB})\n";
+        std::filesystem::path importPath = absolutePath / "c" / fileDir;
+        std::unordered_set<std::string> import;
+        std::unordered_map<std::string, DeclarationSequence*>* importArt = module.getImport();
+        if (importArt != nullptr) {
+            for (auto kv : *importArt) {
+                cmakeLists << "add_library(" << kv.first << "-lib STATIC " << (importPath / (kv.first + ".c")).c_str() << ")\n";
+                import.insert(kv.first + "-lib");
+            }
+        }
         cmakeLists << "add_library(baselib STATIC ${BASE_LIB})\n";
         cmakeLists << "add_executable(" << fileName << " ${SOURCE_EXE})\n";
-        cmakeLists << "target_link_libraries(" << fileName << " baselib " << fileName << "-lib)\n";
+        cmakeLists << "target_link_libraries(\n    " << fileName << "\n    baselib\n    " << fileName << "-lib\n";
+        for (auto imp : import) {
+            cmakeLists << "    " << imp << "\n";
+        }
+        cmakeLists << ")";
         cmakeLists.close();
+
+        // Генерация def файла
+        ExportModuleToFile(module.getDeclarationSequence(), fullPath / "def" / (opts.fileName + ".def"));
     } else {
         std::cout << "\e[1;31m" << "FAIL" << "\e[0m" << std::endl;
     }
@@ -186,21 +207,23 @@ ModuleCompiler::ModuleCompiler(const char* str): moduleStr{str},
     base->addConstNamedArtefact(new ConstDeclaration("ORD", new ConstFactor(CreateConstORD(), nullptr), false));
     base->addConstNamedArtefact(new ConstDeclaration("CHR", new ConstFactor(CreateConstCHR(), nullptr), false));
 
-    // TODO Добавить оставшиеся неконстантные функции, такие как INC(v, n), ABS(x), ODD(x)
-    // TODO Обработать функции с одинаковыми названиями, но с разным числом аргументов
+    // TODO Добавить оставшиеся неконстантные функции, такие как ABS(x), LSL(x, n), ASR(x, n), ROR(x, n), FLOOR(x),
+    // FLT(x), ORD(x), CHR(x)
+    // TODO Обработать функции с одинаковыми названиями, но с разными аргументами
     // Неконстантные функции
     AddProcedureHeading(base, "INC", {{"v", "INTEGER"}}, {1}, nullptr);
-    AddProcedureHeading(base, "INC", {{"v", "INTEGER"}, {"n", "INTEGER"}}, {1, 0}, nullptr);
+    AddProcedureHeading(base, "INC_N", {{"v", "INTEGER"}, {"n", "INTEGER"}}, {1, 0}, nullptr);
     AddProcedureHeading(base, "DEC", {{"v", "INTEGER"}}, {1}, nullptr);
-    AddProcedureHeading(base, "DEC", {{"v", "INTEGER"}, {"n", "INTEGER"}}, {1, 0}, nullptr);
+    AddProcedureHeading(base, "DEC_N", {{"v", "INTEGER"}, {"n", "INTEGER"}}, {1, 0}, nullptr);
+    AddProcedureHeading(base, "ODD", {{"x", "INTEGER"}}, {0}, base->getArtefactByName("BOOLEAN")->getContext()->getType());
     AddProcedureHeading(base, "INCL", {{"v", "SET"}, {"x", "INTEGER"}}, {1, 0}, nullptr);
     AddProcedureHeading(base, "EXCL", {{"v", "SET"}, {"x", "INTEGER"}}, {1, 0}, nullptr);
     AddProcedureHeading(base, "NEW", {{"v", "INTEGER"}}, {0}, nullptr); // Здесь параметр имеет тип INTEGER,
     // потому что в функцию может быть передан любой указатель
     AddProcedureHeading(base, "LEN", {{"v", "BASE_ARRAY"}}, {0}, base->getArtefactByName("INTEGER")->getContext()->getType());
     AddProcedureHeading(base, "ASSERT", {{"b", "BOOLEAN"}}, {0}, nullptr);
-    AddProcedureHeading(base, "PACK", {{"x", "REAL"}, {"n", "INTEGER"}}, {1, 0}, nullptr); // TODO
-    AddProcedureHeading(base, "UNPACK", {{"x", "REAL"}, {"n", "INTEGER"}}, {1, 0}, nullptr); // TODO
+    AddProcedureHeading(base, "PACK", {{"x", "REAL"}, {"n", "INTEGER"}}, {1, 0}, nullptr);
+    AddProcedureHeading(base, "UNPACK", {{"x", "REAL"}, {"n", "INTEGER"}}, {1, 0}, nullptr);
 
     declaration = base;
 }
@@ -317,6 +340,8 @@ _2:
     if(isSymbol(moduleStr[pos], ',')) {
         ImportContext* iContext = creator.CreateImportContext(alias, alias);
         module.AddNamedArtefact(alias, iContext);
+        importAlias[alias] = alias;
+        (*module.getImport())[alias] = ImportModuleFromFile(defPath / (alias + ".def"), declaration);
         ++pos;
         ++column;
         ignore();
@@ -325,6 +350,8 @@ _2:
     if(isSymbol(moduleStr[pos], ';')) {
         ImportContext* iContext = creator.CreateImportContext(alias, alias);
         module.AddNamedArtefact(alias, iContext);
+        importAlias[alias] = alias;
+        (*module.getImport())[alias] = ImportModuleFromFile(defPath / (alias + ".def"), declaration);
         ++pos;
         ++column;
         ignore();
@@ -343,6 +370,8 @@ _4:
     if(isSymbol(moduleStr[pos], ',')) {
         ImportContext* iContext = creator.CreateImportContext(import, alias);
         module.AddNamedArtefact(alias, iContext);
+        importAlias[alias] = import;
+        (*module.getImport())[import] = ImportModuleFromFile(defPath / (import + ".def"), declaration);
         ++pos;
         ++column;
         ignore();
@@ -351,6 +380,8 @@ _4:
     if(isSymbol(moduleStr[pos], ';')) {
         ImportContext* iContext = creator.CreateImportContext(import, alias);
         module.AddNamedArtefact(alias, iContext);
+        importAlias[alias] = import;
+        (*module.getImport())[import] = ImportModuleFromFile(defPath / (import + ".def"), declaration);
         ++pos;
         ++column;
         ignore();
@@ -956,9 +987,9 @@ _end:
 //-----------------------------------------------------------------------------
 // ArrayType = ARRAY length {"," length} OF type.
 // length = ConstExpression.
-// TODO поддержать синтаксис ARRAY 10, 20 OF REAL
 bool ModuleCompiler::isArrayType(TypeContext** type) {
 //_0:
+    std::vector<long long> lens;
     if(isKeyWord("ARRAY")) {
         goto _1;
     }
@@ -966,6 +997,7 @@ bool ModuleCompiler::isArrayType(TypeContext** type) {
 _1:
     ConstFactor* len = nullptr;
     if(isConstExpression(&len)) {
+        lens.push_back(len->getIntValue());
         goto _2;
     }
     return erMessage("Constant Expression expected");
@@ -987,7 +1019,10 @@ _3:
     }
     return erMessage("Type value expected");
 _end:
-    (*type) = new TypeArrayContext(len->getIntValue(), ctx);
+    (*type) = new TypeArrayContext(lens.back(), ctx);
+    for (int i = lens.size() - 2; i >= 0; --i) {
+        (*type) = new TypeArrayContext(lens[i], *type);
+    }
     return true;
 }
 
@@ -1668,6 +1703,20 @@ _1:
     }
     goto _end;
 _end:
+    if (des->getQualident().idents[0] == "INC" && params.size() == 2) {
+        Qualident qual;
+        qual.idents.push_back("INC_N");
+        qual.varArtefact = declaration->getArtefactByName("INC_N");
+        qual.type = qual.varArtefact->getContext()->getType();
+        des->addQualident(qual);
+    }
+    if (des->getQualident().idents[0] == "DEC" && params.size() == 2) {
+        Qualident qual;
+        qual.idents.push_back("DEC_N");
+        qual.varArtefact = declaration->getArtefactByName("DEC_N");
+        qual.type = qual.varArtefact->getContext()->getType();
+        des->addQualident(qual);
+    }
     (*st) = new ProcedureCall(des, params);
     return true;
 }
@@ -2299,6 +2348,20 @@ _3:
 _4:
     if(isActualParameters(params)) {
         des->params = new ActualParameters(params);
+        if (des->designator->getQualident().idents[0] == "INC" && des->params->params.size() == 2) {
+            Qualident qual;
+            qual.idents.push_back("INC_N");
+            qual.varArtefact = declaration->getArtefactByName("INC_N");
+            qual.type = qual.varArtefact->getContext()->getType();
+            des->designator->addQualident(qual);
+        }
+        if (des->designator->getQualident().idents[0] == "DEC" && des->params->params.size() == 2) {
+            Qualident qual;
+            qual.idents.push_back("DEC_N");
+            qual.varArtefact = declaration->getArtefactByName("DEC_N");
+            qual.type = qual.varArtefact->getContext()->getType();
+            des->designator->addQualident(qual);
+        }
     }
     (*factor) = new Factor(des);
     goto _end;
@@ -2793,11 +2856,21 @@ _2:
     if(isId(ident2)) {
         qualident.idents.push_back(ident2);
         tmpValue += '.' + lexValue;
-        DeclarationSequence* ds = declaration->getDeclarationSequenceFromImport(ident1);
+        DeclarationSequence* ds = declaration->getDeclarationSequenceFromImport(importAlias[ident1]);
         if (ds) {
+            qualident.isImport = true;
+            ident1 = importAlias[ident1];
             NamedArtefact* art = ds->getArtefactByName(ident2);
             if (!art) {
-                return erMessage("Invalid qualident '" + tmpValue + "'");
+                ConstFactor* factor = ds->getConstFactorByName(ident2);
+                if (factor != nullptr) {
+                    qualident.type = factor->getResultType();
+                    qualident.isVariable = false;
+                    qualident.isConstant = true;
+                    goto _end;
+                } else {
+                    return erMessage("Invalid qualident '" + tmpValue + "'");
+                }
             }
             Context* ctx = art->getContext();
             qualident.type = ctx->getType();

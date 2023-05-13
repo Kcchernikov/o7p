@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 #include <variant>
+#include <filesystem>
 
 #include <cctype>
 
@@ -51,6 +52,9 @@ class ModuleCompiler {
     uint32_t errCnt;                    // Число ошибок
     Creator creator;                    // Вспомогательный класс для создания
     DeclarationSequence* declaration;   // Текущая таблица имен
+    std::filesystem::path defPath;      // Путь до def директории
+    
+    std::unordered_map<std::string, std::string> importAlias;   // Соответствие алиасов импорту
 public:
     // Конструктор, формирующий начальные установки параметров компилятора
     ModuleCompiler(const char* str);
@@ -62,6 +66,10 @@ public:
     // Число ошибок
     uint32_t getErrCnt() {
         return errCnt;
+    }
+
+    void setDefPath(const std::filesystem::path& path) {
+        defPath = path;
     }
     
     // ImportList

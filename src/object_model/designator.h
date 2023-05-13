@@ -16,6 +16,7 @@ struct Qualident {
     VarContext* firstVar = nullptr;
     bool isVariable;
     bool isConstant;
+    bool isImport = false;
     // Является ли первый ident указателем
     bool isFirstPointer;
 };
@@ -105,6 +106,7 @@ public:
     void addAssertSelector(const Qualident& qual);
     void addPointerSelector();
     Qualident getQualident() const;
+    Qualident& getQualident();
 private:
     Qualident qualident;
     std::vector<Selector*> selectors;

@@ -11,6 +11,7 @@ set(SOURCE_LIB
     statement.h
     expression.h
     validate.h
+    saveload.h
     
     #sources
     declaration.cpp
@@ -20,6 +21,7 @@ set(SOURCE_LIB
     statement.cpp
     expression.cpp
     validate.cpp
+    saveload.cpp
 )
 
 add_library(object_model STATIC ${SOURCE_LIB})   # Создание статической библиотеки

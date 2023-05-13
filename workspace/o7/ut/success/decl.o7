@@ -1,7 +1,5 @@
 MODULE Init;
 
- IMPORT D := Draw, M := Math, S := Strings;
-
  CONST
   width = 400; height = 400; (* размер холста *)
   n = 300; nodes = 16; r = 70.0; speed = 0.1; (* параметры модели *)
@@ -75,6 +73,7 @@ VAR
   c: CHAR;
   a, b: SET;
   pinMap: ARRAY nodes OF ARRAY nodes OF ARRAY nodes OF INTEGER;
+  pinMap1: ARRAY nodes, nodes, nodes OF INTEGER;
   products : ARRAY productsCount OF Product;
   child: ParticleChild;
   nd: Node1;
@@ -89,4 +88,5 @@ END AddProductsToStock;
 BEGIN
   NEW(nd);
   AddProductsToStock(child, products);
+  pinMap1[0,0,0] := 7;
 END Init.

@@ -1,0 +1,56 @@
+MODULE ModuleA;
+
+CONST maxVal* = 20; constSet* = {1, 2, 7, 9..15, 19..maxVal};
+
+TYPE
+  Function* = PROCEDURE (x: INTEGER; VAR a, b : SET): INTEGER;
+
+  Particle* = RECORD
+ 	x, y, vx, vy: REAL
+  END;
+
+  Bool* = BOOLEAN;
+  Int* = INTEGER;
+  Real* = REAL;
+  Char* = CHAR;
+  Set* = SET;
+
+  AnyRec = RECORD 
+    recNum* : INTEGER
+  END;
+
+  AnyRecSon* = RECORD (AnyRec)
+    m* : INTEGER
+  END;
+
+  Node1* = POINTER TO RECORD 
+    next*   : Node1
+  END;
+
+  array* = ARRAY 100 OF ARRAY 10 OF CHAR;
+
+VAR 
+  i*, j*, v*, result: INTEGER;
+  inSet*: BOOLEAN;
+  varSet*: SET;
+  varArr*: ARRAY 10 OF INTEGER;
+
+PROCEDURE Ask* (VAR n: INTEGER);
+CONST len = 256;
+VAR value: ARRAY len OF INTEGER; i : INTEGER;
+BEGIN
+ i := 0;
+ value[i] := i;
+ WHILE (i < len) & (value[i] # 10) DO
+  value[i] := i;
+  INC(i);
+  DEC(i, 1);
+  INC(i, 1);
+  n := n + 1;
+ END
+END Ask;
+
+BEGIN
+ varSet := constSet;
+
+END ModuleA.

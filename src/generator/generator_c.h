@@ -5,6 +5,7 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 class GeneratorC: public Generator {
@@ -65,11 +66,13 @@ private:
     size_t tabcnt = 0;
     size_t markId = 0;
     size_t caseId = 0;
+    bool isHDecl = false;
     std::unordered_map<std::string, bool> isRecordDeclarated;
     std::unordered_map<std::string, bool> isParticalDeclaratedPointer;
     std::unordered_set<std::string> tmpRecords;
     std::unordered_map<VarContext*, std::string> changedVarNames;
     std::unordered_set<std::string> declaratedPointerRecords; // Записи, которые уже были определены в указателях
+    std::unordered_set<std::string> import;
 };
 
 #endif // GENERATOR_C_H
