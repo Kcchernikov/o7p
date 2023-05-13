@@ -8,12 +8,16 @@
 У исполняемого файла есть следующие опции, которые можно задать:
 
 - `-h [--help]` - вывести информацию о доступных опциях
-- `-f [--file] oberon_file.o7` - файл, содержащий модуль
-- `--output-dir dir` - директория, куда сохраниться результат работы компилятора
-- `-o [--output-file] c_file` - название файла результата. Если опция не задана, то название будет такое же, как у файла с модулем.
-  В результате будут созданы файлы `c_file.h` и `c_file.c`
-- `-d [--debug]` - вывести debug информацию. Включает в себя построенную объектную модель и сгенерированный код.
+- `-w [--workspace-dir] dir` - путь до директории `workspace`, в которой в директории `o7p` находятся модули на Oberon-7. По умолчанию `../o7p/workspace`
+- `-f [--file-name] oberon_file.o7` - путь к файлу с модулем относительно `workspace/o7`. Расширение ".o7" может быть опущено
+- `-d [--debug]` - вывести debug информацию. Включает в себя построенную объектную модель и сгенерированный код
 
 ## Пример запуска
 
-`./o7p  --file ../o7p/workspace/o7/ut/success/base_statement.o7 --output-dir ../o7p/workspace/c/ut/success`
+`./o7p -f ut/success/assigment`
+
+После данного запуска в `workspace` создадутся директории `h/ut/success`, `c/ut/success`, `main-c/ut/success`, `prj/ut/success/assigment`, `out/ut/success`.
+
+В `h/ut/success` будет создан файл `assigment.h`, в `c/ut/success` будет создан `assigment.c`, в `main-c/ut/success` будет создан `main-assigment.c`, содержащий функцию `main()`, запускающую инициализацию модуля, в `prj/ut/success/assigment` будет создан `CMakeLists.txt`, описывающий проект из исполняемого файла `main-assigment.c` и библиотек `baselib` и `assigment`. 
+
+Для того, чтобы собрать проект на С достаточно из директории `prj/ut/success/assigment` запустить команду `cmake ./ && make` и в директории `out/ut/success` появится исполняемый файл `assigment`
