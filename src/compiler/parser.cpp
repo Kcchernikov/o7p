@@ -3,6 +3,7 @@
 #include "../generator/generator_c.h"
 #include "../object_model/saveload.h"
 
+#include <__nullptr>
 #include <algorithm>
 #include <cstddef>
 #include <cstdio>
@@ -207,15 +208,31 @@ ModuleCompiler::ModuleCompiler(const char* str): moduleStr{str},
     base->addConstNamedArtefact(new ConstDeclaration("ORD", new ConstFactor(CreateConstORD(), nullptr), false));
     base->addConstNamedArtefact(new ConstDeclaration("CHR", new ConstFactor(CreateConstCHR(), nullptr), false));
 
-    // TODO Добавить оставшиеся неконстантные функции, такие как ABS(x), LSL(x, n), ASR(x, n), ROR(x, n), FLOOR(x),
-    // FLT(x), ORD(x), CHR(x)
-    // TODO Обработать функции с одинаковыми названиями, но с разными аргументами
     // Неконстантные функции
     AddProcedureHeading(base, "INC", {{"v", "INTEGER"}}, {1}, nullptr);
     AddProcedureHeading(base, "INC_N", {{"v", "INTEGER"}, {"n", "INTEGER"}}, {1, 0}, nullptr);
     AddProcedureHeading(base, "DEC", {{"v", "INTEGER"}}, {1}, nullptr);
     AddProcedureHeading(base, "DEC_N", {{"v", "INTEGER"}, {"n", "INTEGER"}}, {1, 0}, nullptr);
     AddProcedureHeading(base, "ODD", {{"x", "INTEGER"}}, {0}, base->getArtefactByName("BOOLEAN")->getContext()->getType());
+    AddProcedureHeading(base, "CHR", {{"x", "INTEGER"}}, {0}, base->getArtefactByName("CHAR")->getContext()->getType());
+    AddProcedureHeading(base, "FLOOR", {{"x", "REAL"}}, {0}, base->getArtefactByName("INTEGER")->getContext()->getType());
+    AddProcedureHeading(base, "FLT", {{"x", "INTEGER"}}, {0}, base->getArtefactByName("REAL")->getContext()->getType());
+
+    specialFuncs.insert("ABS");
+    AddProcedureHeading(base, "ABS", {{"x", "INTEGER"}}, {0}, base->getArtefactByName("INTEGER")->getContext()->getType());
+    AddProcedureHeading(base, "ABS_INTEGER", {{"x", "INTEGER"}}, {0}, base->getArtefactByName("INTEGER")->getContext()->getType());
+    AddProcedureHeading(base, "ABS_REAL", {{"x", "REAL"}}, {0}, base->getArtefactByName("REAL")->getContext()->getType());
+
+    AddProcedureHeading(base, "LSL", {{"x", "INTEGER"}, {"n", "INTEGER"}}, {1, 0}, base->getArtefactByName("INTEGER")->getContext()->getType());
+    AddProcedureHeading(base, "ASR", {{"x", "INTEGER"}, {"n", "INTEGER"}}, {1, 0}, base->getArtefactByName("INTEGER")->getContext()->getType());
+    AddProcedureHeading(base, "ROR", {{"x", "INTEGER"}, {"n", "INTEGER"}}, {1, 0}, base->getArtefactByName("INTEGER")->getContext()->getType());
+
+    specialFuncs.insert("ORD");
+    AddProcedureHeading(base, "ORD", {{"x", "INTEGER"}}, {0}, base->getArtefactByName("INTEGER")->getContext()->getType());
+    AddProcedureHeading(base, "ORD_CHAR", {{"x", "CHAR"}}, {0}, base->getArtefactByName("INTEGER")->getContext()->getType());
+    AddProcedureHeading(base, "ORD_BOOL", {{"x", "BOOLEAN"}}, {0}, base->getArtefactByName("INTEGER")->getContext()->getType());
+    AddProcedureHeading(base, "ORD_SET", {{"x", "SET"}}, {0}, base->getArtefactByName("INTEGER")->getContext()->getType());
+
     AddProcedureHeading(base, "INCL", {{"v", "SET"}, {"x", "INTEGER"}}, {1, 0}, nullptr);
     AddProcedureHeading(base, "EXCL", {{"v", "SET"}, {"x", "INTEGER"}}, {1, 0}, nullptr);
     AddProcedureHeading(base, "NEW", {{"v", "INTEGER"}}, {0}, nullptr); // Здесь параметр имеет тип INTEGER,
@@ -224,6 +241,17 @@ ModuleCompiler::ModuleCompiler(const char* str): moduleStr{str},
     AddProcedureHeading(base, "ASSERT", {{"b", "BOOLEAN"}}, {0}, nullptr);
     AddProcedureHeading(base, "PACK", {{"x", "REAL"}, {"n", "INTEGER"}}, {1, 0}, nullptr);
     AddProcedureHeading(base, "UNPACK", {{"x", "REAL"}, {"n", "INTEGER"}}, {1, 0}, nullptr);
+
+    specialFuncs.insert("PRINT");
+    AddProcedureHeading(base, "PRINT", {{"x", "INTEGER"}}, {0}, nullptr);
+    AddProcedureHeading(base, "PRINT_BOOL", {{"x", "BOOLEAN"}}, {0}, nullptr);
+    AddProcedureHeading(base, "PRINT_CHAR", {{"x", "CHAR"}}, {0}, nullptr);
+    AddProcedureHeading(base, "PRINT_INTEGER", {{"x", "INTEGER"}}, {0}, nullptr);
+    AddProcedureHeading(base, "PRINT_STRING", {{"x", "STRING"}}, {0}, nullptr);
+    AddProcedureHeading(base, "PRINT_REAL", {{"x", "REAL"}}, {0}, nullptr);
+    AddProcedureHeading(base, "PRINT_SET", {{"x", "SET"}}, {0}, nullptr);
+
+    // TODO SCAN
 
     declaration = base;
 }
@@ -260,15 +288,18 @@ _3:
         goto _4;
     }
 _4:
+    isModuleDecl = true;
     DeclarationSequence* ds = nullptr;
     if(isDeclarationSequence(&ds, module.getReserved(), module.getImport())) {
         module.setDeclarationSequence(ds);
         delete ds;
         declaration = module.getDeclarationSequence();
+        isModuleDecl = false;
         goto _5;
     } else {
         declaration = oldDeclaration;
     }
+    isModuleDecl = false;
 _5:
     StatementSequence* st = nullptr;
     if(isKeyWord("BEGIN")) {
@@ -401,6 +432,7 @@ bool ModuleCompiler::isDeclarationSequence(DeclarationSequence** ds,
                                            std::unordered_map<std::string, NamedArtefact*>* reserved,
                                            std::unordered_map<std::string, DeclarationSequence*>* import) {
 //_0:
+    declarationStack++;
     DeclarationSequence* curDS = nullptr;
     bool needDelete = false;
     if ((*ds)) {
@@ -412,6 +444,7 @@ bool ModuleCompiler::isDeclarationSequence(DeclarationSequence** ds,
     declaration = curDS;
     ConstDeclaration* cd;
     NamedArtefact* decl = nullptr;
+    // Procedure* proc = nullptr;
     if(isKeyWord("CONST")) {
         goto _1;
     }
@@ -421,14 +454,15 @@ bool ModuleCompiler::isDeclarationSequence(DeclarationSequence** ds,
     if(isKeyWord("VAR")) {
         goto _7;
     }
-    if(isProcedureDeclaration(&decl)) {
-        curDS->addNamedArtefact(decl);
-        decl = nullptr;
+    if(isProcedureDeclaration(curDS)) {
+        // curDS->addNamedArtefact(decl);
+        // decl = nullptr;
         goto _10;
     }
     if (needDelete) {
         delete curDS;
     }
+    declarationStack--;
     return false;
 _1:
     if(isConstDeclaration(&cd)) {
@@ -455,9 +489,9 @@ _3:
     if(isKeyWord("VAR")) {
         goto _7;
     }
-    if(isProcedureDeclaration(&decl)) {
-        curDS->addNamedArtefact(decl);
-        decl = nullptr;
+    if(isProcedureDeclaration(curDS)) {
+        // curDS->addNamedArtefact(decl);
+        // decl = nullptr;
         goto _10;
     }
     goto _end;  // выход без ошибки при отсутствии правила
@@ -485,9 +519,9 @@ _6:
     if(isKeyWord("VAR")) {
         goto _7;
     }
-    if(isProcedureDeclaration(&decl)) {
-        curDS->addNamedArtefact(decl);
-        decl = nullptr;
+    if(isProcedureDeclaration(curDS)) {
+        // curDS->addNamedArtefact(decl);
+        // decl = nullptr;
         goto _10;
     }
     goto _end;  // выход без ошибки при отсутствии правила
@@ -508,9 +542,9 @@ _9:
     if(isVariableDeclaration(curDS)) {
         goto _8;
     }
-    if(isProcedureDeclaration(&decl)) {
-        curDS->addNamedArtefact(decl);
-        decl = nullptr;
+    if(isProcedureDeclaration(curDS)) {
+        // curDS->addNamedArtefact(decl);
+        // decl = nullptr;
         goto _10;
     }
     goto _end;  // выход без ошибки при отсутствии правила
@@ -523,9 +557,9 @@ _10:
     }
     return erMessage("Semicolon expected");
 _11:
-    if(isProcedureDeclaration(&decl)) {
-        curDS->addNamedArtefact(decl);
-        decl = nullptr;
+    if(isProcedureDeclaration(curDS)) {
+        // curDS->addNamedArtefact(decl);
+        // decl = nullptr;
         goto _10;
     }
     goto _end;  // выход без ошибки при отсутствии правила
@@ -536,6 +570,7 @@ _end:
     if (ds) {
         (*ds) = curDS;
     }
+    declarationStack--;
     return true;
 }
 
@@ -987,18 +1022,32 @@ _end:
 //-----------------------------------------------------------------------------
 // ArrayType = ARRAY length {"," length} OF type.
 // length = ConstExpression.
+// У глобального массива должна быть константная длина
 bool ModuleCompiler::isArrayType(TypeContext** type) {
 //_0:
     std::vector<long long> lens;
+    std::vector<Expression*> expLens;
     if(isKeyWord("ARRAY")) {
         goto _1;
     }
     return false;
 _1:
     ConstFactor* len = nullptr;
+    Expression* expLen = nullptr;
+    if((!isModuleDecl || declarationStack > 1) && isExpression(&expLen)) {
+        expLens.push_back(expLen);
+        goto _2;
+    }
+    Location l1;
+    storeLocation(l1);
     if(isConstExpression(&len)) {
         lens.push_back(len->getIntValue());
-        goto _2;
+        restoreLocation(l1);
+        if(isExpression(&expLen)) {
+            expLens.push_back(expLen);
+            goto _2;
+        }
+        // goto _2;
     }
     return erMessage("Constant Expression expected");
 _2:
@@ -1019,10 +1068,22 @@ _3:
     }
     return erMessage("Type value expected");
 _end:
-    (*type) = new TypeArrayContext(lens.back(), ctx);
-    for (int i = lens.size() - 2; i >= 0; --i) {
-        (*type) = new TypeArrayContext(lens[i], *type);
+    if (lens.size() == expLens.size()) {
+        (*type) = new TypeArrayContext(ctx, expLens.back(), lens.back());
+        for (int i = expLens.size() - 2; i >= 0; --i) {
+            (*type) = new TypeArrayContext(*type, expLens[i], lens[i]);
+        }
+    } else {
+        (*type) = new TypeArrayContext(ctx, expLens.back());
+        for (int i = expLens.size() - 2; i >= 0; --i) {
+            (*type) = new TypeArrayContext(*type, expLens[i]);
+        }
     }
+    // Const len
+    // (*type) = new TypeArrayContext(lens.back(), ctx);
+    // for (int i = lens.size() - 2; i >= 0; --i) {
+    //     (*type) = new TypeArrayContext(lens[i], *type);
+    // }
     return true;
 }
 
@@ -1412,7 +1473,7 @@ _end:
 
 //-----------------------------------------------------------------------------
 // ProcedureDeclaration = ProcedureHeading ";" ProcedureBody ident.
-bool ModuleCompiler::isProcedureDeclaration(NamedArtefact** procedure) {
+bool ModuleCompiler::isProcedureDeclaration(DeclarationSequence* curDs) {
 //_0:
     DeclarationSequence* oldDeclaration = declaration;
     Procedure* proc = new Procedure(declaration);
@@ -1422,6 +1483,12 @@ bool ModuleCompiler::isProcedureDeclaration(NamedArtefact** procedure) {
     delete proc;
     return false;
 _1:
+    if (curDs != nullptr) {
+        // ProcContext* proc = new Procedure(heading, body);
+        NamedArtefact* art = new NamedArtefact(proc->getIdent().name, proc, proc->getIdent().access);
+        proc->setNamedArtefact(art);
+        curDs->addNamedArtefact(art);
+    }
     if(isSymbol(moduleStr[pos], ';')) {
         ++pos;
         ++column;
@@ -1444,11 +1511,11 @@ _3:
     }
     return erMessage("Name of Procedure expected");
 _end:
-    if (procedure) {
-        // ProcContext* proc = new Procedure(heading, body);
-        (*procedure) = new NamedArtefact(name, proc, proc->getIdent().access);
-        proc->setNamedArtefact(*procedure);
-    }
+    // if (procedure) {
+    //     // ProcContext* proc = new Procedure(heading, body);
+    //     (*procedure) = new NamedArtefact(name, proc, proc->getIdent().access);
+    //     proc->setNamedArtefact(*procedure);
+    // }
     // declaration = oldDeclaration;
     return true;
 }
@@ -1714,6 +1781,17 @@ _end:
         Qualident qual;
         qual.idents.push_back("DEC_N");
         qual.varArtefact = declaration->getArtefactByName("DEC_N");
+        qual.type = qual.varArtefact->getContext()->getType();
+        des->addQualident(qual);
+    }
+    if (specialFuncs.count(des->getQualident().idents[0]) != 0) {
+        std::string type = params[0]->getResultType()->getTypeName();
+        type = type.substr(4, type.size() - 4 - 7); // Erase type and Context
+        std::transform(type.begin(), type.end(), type.begin(), ::toupper);
+        Qualident qual;
+        std::string newName = des->getQualident().idents[0] + "_" + type;
+        qual.idents.push_back(newName);
+        qual.varArtefact = declaration->getArtefactByName(newName);
         qual.type = qual.varArtefact->getContext()->getType();
         des->addQualident(qual);
     }
@@ -2069,7 +2147,7 @@ bool ModuleCompiler::isForStatement(ForStatement** st) {
     }
     return false;
 _1:
-    if((isIdent(ident))) {
+    if(isIdent(ident)) {
         goto _2;
     }
     return erMessage("Identifier expected");
@@ -2359,6 +2437,17 @@ _4:
             Qualident qual;
             qual.idents.push_back("DEC_N");
             qual.varArtefact = declaration->getArtefactByName("DEC_N");
+            qual.type = qual.varArtefact->getContext()->getType();
+            des->designator->addQualident(qual);
+        }
+        if (specialFuncs.count(des->designator->getQualident().idents[0]) != 0) {
+            std::string type = params[0]->getResultType()->getTypeName();
+            type = type.substr(4, type.size() - 4 - 7); // Erase type and Context
+            std::transform(type.begin(), type.end(), type.begin(), ::toupper);
+            Qualident qual;
+            std::string newName = des->designator->getQualident().idents[0] + "_" + type;
+            qual.idents.push_back(newName);
+            qual.varArtefact = declaration->getArtefactByName(newName);
             qual.type = qual.varArtefact->getContext()->getType();
             des->designator->addQualident(qual);
         }
@@ -2831,14 +2920,21 @@ _1:
                 qualident.type = rec;
                 qualident.isVariable = true;
             } else {
-                restoreLocation(constExp);
-                ConstFactor* factor = nullptr;
-                if (isConstExpression(&factor)) {
+                ConstFactor* factor = declaration->getConstFactorByName(ident1);
+                if (factor != nullptr) {
                     qualident.type = factor->getResultType();
                     qualident.isVariable = false;
                     qualident.isConstant = true;
                 } else {
-                    return erMessage("Invalid qualident '" + tmpValue + "'");
+                    restoreLocation(constExp);
+                    ConstFactor* factor = nullptr;
+                    if (isConstExpression(&factor)) {
+                        qualident.type = factor->getResultType();
+                        qualident.isVariable = false;
+                        qualident.isConstant = true;
+                    } else {
+                        return erMessage("Invalid qualident '" + tmpValue + "'");
+                    }
                 }
             }
         } else {

@@ -1,4 +1,5 @@
 #include "type.h"
+#include "../object_model/expression.h"
 #include "../generator/generator.h"
 
 // Вывод отладочной информации об общем контексте типа
@@ -6,7 +7,6 @@ void TypeContext::debugOut(size_t tabcnt) {
     std::cout << "TYPE ";
     ///debugInfoAboutName();
 }
-
 
 // Вывод отладочной информации о булевском типе
 void TypeBoolContext::debugOut(size_t tabcnt) {
@@ -140,6 +140,43 @@ void TypePointerContext::debugOut(size_t tabcnt) {
 
 void TypePointerContext::generate(Generator* generator, std::stringstream& cur, const std::string& name) {
     generator->GenerateTypePointer(*this, cur, name);
+}
+
+TypeArrayContext::TypeArrayContext(size_t len, TypeContext* v, bool allowEmpty): length(len), expLen(nullptr), valueType(v) {
+    if (v) {
+        typeSize = v->getTypeSize() * len;
+    } else if (!allowEmpty) {
+        std::cout << "\e[1;31m ERROR: VALUE TYPE IS EMPTY \e[0m" << std::endl;
+    }
+}
+
+TypeArrayContext::TypeArrayContext(TypeContext* v, Expression* expLen, size_t len): length(len), expLen(expLen), valueType(v) {
+    if (v) {
+        typeSize = v->getTypeSize();
+    } else {
+        std::cout << "\e[1;31m ERROR: VALUE TYPE IS EMPTY \e[0m" << std::endl;
+    }
+}
+
+TypeArrayContext::TypeArrayContext(TypeContext* v, DeclarationSequence* ds, size_t len)
+    : length(len),
+      expLen(nullptr),
+      valueType(v) {
+    if (len != 0) {
+        expLen = new Expression();
+        SimpleExpression* simple = new SimpleExpression();
+        Term* term = new Term();
+        ConstFactor* cf = new ConstFactor(static_cast<long long>(len), ds);
+        Factor* factor = new Factor(cf);
+        term->setStartFactor(factor);
+        simple->setStartTerm(UnaryOperator::NONE, term);
+        expLen->setFirstSimpleExpression(simple);
+    }
+    if (v) {
+        typeSize = v->getTypeSize() * len;
+    } else {
+        std::cout << "\e[1;31m ERROR: VALUE TYPE IS EMPTY \e[0m" << std::endl;
+    }
 }
 
 // Вывод отладочной информации о типе - массиве

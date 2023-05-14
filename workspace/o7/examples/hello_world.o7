@@ -1,0 +1,5 @@
+MODULE Hello;
+
+BEGIN
+ PRINT("Hello, world!\n");
+END Hello.

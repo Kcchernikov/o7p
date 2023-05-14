@@ -306,18 +306,18 @@ private:
     TypeRecordContext* recordType;    // указатель ссылается только на запись
 };
 
+class Expression;
+
 // Класс, определяющий тип - массив
 class TypeArrayContext: public TypeContext {
     friend class GeneratorC;
 public:
     // Создание типа и определение его размера
-    TypeArrayContext(size_t len, TypeContext* v, bool allowEmpty = false): length(len), valueType(v) {
-        if (v) {
-            typeSize = v->getTypeSize() * len;
-        } else if (!allowEmpty) {
-            std::cout << "\e[1;31m ERROR: VALUE TYPE IS EMPTY \e[0m" << std::endl;
-        }
-    }
+    TypeArrayContext(size_t len, TypeContext* v, bool allowEmpty = false);
+
+    TypeArrayContext(TypeContext* v, Expression* expLen, size_t len = 0);
+
+    TypeArrayContext(TypeContext* v, DeclarationSequence* ds, size_t len = 0);
 
     virtual TypeContext* getType() {
         return this;
@@ -359,6 +359,7 @@ public:
     }
 private:
     size_t length; // значение 0 указывает о произвольной длине
+    Expression* expLen; // Длина, которая может быть задана выражением
     TypeContext* valueType;    // указатель ссылается только на запись, nullptr означает любой подходящий тип
 };
 

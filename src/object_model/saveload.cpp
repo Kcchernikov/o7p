@@ -167,9 +167,9 @@ TypeArrayContext* ImportArray(DeclarationSequence* declaration, DeclarationSeque
     def >> c; // "{"
     TypeContext* ctx = dynamic_cast<TypeContext*>(ImportType(declaration, base, def));
     TypeArrayContext* type = nullptr;
-    type = new TypeArrayContext(lens.back(), ctx);
+    type = new TypeArrayContext(ctx, base, lens.back());
     for (int i = lens.size() - 2; i >= 0; --i) {
-        type = new TypeArrayContext(lens[i], type);
+        type = new TypeArrayContext(type, base, lens[i]);
     }
     def >> c >> c; // "}}"
     return type;

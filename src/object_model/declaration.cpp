@@ -100,7 +100,7 @@ public:
     ConstFactor* execute(ConstFactor* arg, DeclarationSequence* resultDecl) const override {
         const auto value = arg->getValue();
         if (value.index() == 1) {
-            return new ConstFactor(static_cast<double>(std::floor(std::get<1>(value))), resultDecl);
+            return new ConstFactor(static_cast<long long>(std::floor(std::get<1>(value))), resultDecl);
         } else {
             assert(false && "Incorect argument for constant FLOOR function");  
         }

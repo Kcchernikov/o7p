@@ -4,31 +4,38 @@ IMPORT A := ModuleA;
 
 CONST c = CHR(0);
 
-(*TYPE
+TYPE
   AnyRecGrandSon* = RECORD (A.AnyRecSon)
     n : INTEGER
-  END;*)
+  END;
 
 VAR 
-  (*inSetB: BOOLEAN;
-  varSetB: SET;*)
+  inSetB: BOOLEAN;
+  varSetB: SET;
   varInt: A.Int;
-  (*grandSon: AnyRecGrandSon;
+  grandSon: AnyRecGrandSon;
   Son: A.AnyRecSon;
   nodeA : A.Node1;
   nodeB : A.Node1;
-  arr : A.array;*)
+  arr : A.array;
+  r : REAL;
+  s : STRING;
 
 BEGIN
- (*varSetB := A.constSet;
+ varSetB := A.constSet;
  varInt := 0;
+ r := ABS(r);
  varInt := A.varArr[6];
  INC(varInt);
  grandSon.m := 10;
  NEW(nodeA);
  NEW(nodeB);
  nodeA.next := nodeB;
- arr[1, 2] := c;*)
+ (*arr[1, 2] := CHR(ORD(c));*)
  A.Ask(varInt);
+ PRINT(varSetB);
+ s := "\n";
+ PRINT(s);
+ PRINT(varInt);
 
 END ModuleB.

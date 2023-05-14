@@ -53,8 +53,11 @@ class ModuleCompiler {
     Creator creator;                    // Вспомогательный класс для создания
     DeclarationSequence* declaration;   // Текущая таблица имен
     std::filesystem::path defPath;      // Путь до def директории
+    bool isModuleDecl;                  // Находится ли парсер в декларации модуля
+    size_t declarationStack = 0;            // Находится ли парсер в декларации модуля
     
     std::unordered_map<std::string, std::string> importAlias;   // Соответствие алиасов импорту
+    std::unordered_set<std::string> specialFuncs;   // Соответствие алиасов импорту
 public:
     // Конструктор, формирующий начальные установки параметров компилятора
     ModuleCompiler(const char* str);
@@ -113,7 +116,7 @@ public:
     // VariableDeclaration
     bool isVariableDeclaration(DeclarationSequence* ds);
     // ProcedureDeclaration
-    bool isProcedureDeclaration(NamedArtefact** procedure);
+    bool isProcedureDeclaration(DeclarationSequence* curDs);
     // ProcedureHeading
     bool isProcedureHeading(Procedure* proc);
     // ProcedureBody

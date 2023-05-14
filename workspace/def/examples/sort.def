@@ -1,0 +1,4 @@
+CONST:
+TYPE:
+VAR:
+PROCEDURE: {BubleSort {1 {arr 10 {0 {1}}}: }} {MergeSort {1 {arr 10 {0 {1}}} 0 {l 1} 0 {r 1}: }}

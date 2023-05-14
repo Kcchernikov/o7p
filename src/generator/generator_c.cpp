@@ -88,7 +88,8 @@ void GeneratorC::GenerateModuleDeclaration(const DeclarationSequence& declaratio
                 ccode << cur.str() << ";\n";
             }
             if (var && var->getType()->getTypeName() == "TypeArrayContext") {
-                std::vector<size_t> lengths;
+                // Const len: std::vector<size_t> lengths;
+                std::vector<Expression*> lengths;
                 GenerateArrayBaseRef(*dynamic_cast<TypeArrayContext*>(var->getType()), ccode, name, lengths);
             }
         }
@@ -121,7 +122,8 @@ void GeneratorC::GenerateDeclaration(const DeclarationSequence& declaration, std
                 cur << ";\n";
             }
             if (var && var->getType()->getTypeName() == "TypeArrayContext") {
-                std::vector<size_t> lengths;
+                // Const len: std::vector<size_t> lengths;
+                std::vector<Expression*> lengths;
                 GenerateArrayBaseRef(*dynamic_cast<TypeArrayContext*>(var->getType()), cur, name, lengths);
             }
         }
@@ -143,9 +145,8 @@ void GeneratorC::GenerateConstDeclaration(const ConstDeclaration& declaration, s
     hcur << ";\n";
     if (declaration.access) {
         hcode << hcur.str();
-    } else {
-        ccode << ccur.str();
     }
+    ccode << ccur.str();
 }
 
 void GeneratorC::GenerateConstDeclaration(const ConstDeclaration& declaration, std::stringstream& cur) {
@@ -301,14 +302,14 @@ void GeneratorC::GenerateTypeArray(const TypeArrayContext& type, std::stringstre
     cur << "struct";
     cur << " {\n";
     tabcnt++;
-    GenerateTabs(cur); cur << "size_t lenght;\n";
+    GenerateTabs(cur); cur << "size_t length;\n";
     if (type.valueType->getNamedArtefact()) {
         GenerateTabs(cur); cur << type.valueType->getNamedArtefact()->getName();
     } else {
         GenerateTabs(cur); type.valueType->generate(this, cur, "");
     }
     cur << "* value" << ";\n";
-    // GenerateTabs(cur); cur << "unsigned lenght = " << type.length << ";\n";
+    // GenerateTabs(cur); cur << "unsigned length = " << type.length << ";\n";
     tabcnt--;
     GenerateTabs(cur); cur << "}";
     if (name != "") {
@@ -954,22 +955,46 @@ void GeneratorC::GenerateDesignatorWrapper(const DesignatorWrapper& st, std::str
         return;
     }
     GenerateDesignator(*st.designator, cur);
+
     if (st.params) {
         cur << "(";
+        std::string type = st.designator->getType()->getTypeName();
+        ProcContext* proc = (type == "ProcContext" || type == "Procedure"
+            ? dynamic_cast<ProcContext*>(st.designator->getType())
+            : nullptr
+        );
+        if (!proc) {
+            assert(!false && "Calling of empty procedure is not avaliable");
+        }
+        if (st.params->params.empty()) {
+            cur << ");\n";
+            return;
+        }
         bool start = true;
+        size_t i = 0;
+        auto formalParams = proc->heading->parameters;
+        size_t cnt_p = formalParams[i]->parameters.size();
+        bool isVar = formalParams[i]->getIsVar();
         for (auto p : st.params->params) {
             if (!start) {
                 cur << ", ";
             } else {
                 start = false;
             }
-            if (p->resultType->getTypeName() == "TypeArrayContext") {
-                cur << "(BASE_ARRAY*) ";
+            if (cnt_p == 0) {
+                i++;
+                cnt_p = formalParams[i]->parameters.size();
+                isVar = formalParams[i]->getIsVar();
             }
-            if (p->getIsVar()) {
+            if (formalParams[i]->getType()->getTypeName() == "TypeArrayContext") {
+                cur << "(BASE_ARRAY*) ";
+                isVar = true;
+            }
+            if (isVar) {
                 cur << "&";
             }
             GenerateExpression(*p, cur);
+            cnt_p--;
         }
         cur << ")";
     }
@@ -1003,25 +1028,35 @@ void GeneratorC::GenerateArrayBaseRef(
     const TypeArrayContext& arr,
     std::stringstream& cur,
     const std::string& name,
-    std::vector<size_t>& lenghts
+    // Const len: std::vector<size_t>& lengths
+    std::vector<Expression*>& lengths
 ) {
     TypeContext* valueType = arr.valueType;
     GenerateTabs(cur);
     valueType->generate(this, cur, name);
-    cur << "_base_ref" << lenghts.size();
-    lenghts.push_back(arr.length);
-    for (size_t i : lenghts) {
-        cur << "[" << i << "]";
+    cur << "_base_ref" << lengths.size();
+    // lengths.push_back(arr.length);
+    lengths.push_back(arr.expLen);
+    // for (size_t i : lengths) {
+    //     cur << "[" << i << "]";
+    // }
+    for (Expression* exp : lengths) {
+        cur << "[";
+        GenerateExpression(*exp, cur);
+        cur << "]";
     }
     cur << ";\n";
     if (valueType->getTypeName() == "TypeArrayContext") {
         TypeArrayContext* valueArr = dynamic_cast<TypeArrayContext*>(valueType);
-        GenerateArrayBaseRef(*valueArr, cur, name, lenghts);
+        GenerateArrayBaseRef(*valueArr, cur, name, lengths);
     }
 }
 
 void GeneratorC::InitArray(const TypeArrayContext& arr, std::stringstream& cur, const std::string& name, const std::string& base_name, std::vector<size_t>& indexes) {
-    GenerateTabs(cur); cur << name << ".lenght = " << arr.length << ";\n";
+    // Const len: GenerateTabs(cur); cur << name << ".length = " << arr.length << ";\n";
+    GenerateTabs(cur); cur << name << ".length = ";
+    GenerateExpression(*arr.expLen, cur);
+    cur << ";\n";
     GenerateTabs(cur); cur << name << ".value = (void*) " << base_name << "_base_ref" << indexes.size();
     for (size_t id : indexes) {
         cur << "[i" << id << "]";
@@ -1045,7 +1080,9 @@ void GeneratorC::InitArray(const TypeArrayContext& arr, std::stringstream& cur, 
         : nullptr
     );
     if (rec || inArr) {
-        GenerateTabs(cur); cur << "for (size_t i" << curId << " = 0; i" << curId << " < " << arr.length << "; i" << curId << " += 1) {\n";
+        // Const len
+        // GenerateTabs(cur); cur << "for (size_t i" << curId << " = 0; i" << curId << " < " << arr.length << "; i" << curId << " += 1) {\n";
+        GenerateTabs(cur); cur << "for (size_t i" << curId << " = 0; i" << curId << " < " << name << ".length; i" << curId << " += 1) {\n";
         tabcnt++;
         if (inArr) {
             InitArray(*inArr, cur, new_name, base_name, indexes);
